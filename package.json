@@ -1,0 +1,30 @@
+{
+  "name": "mailmerge-pro",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.10.0",
+    "@tiptap/extension-placeholder": "^2.2.4",
+    "@tiptap/pm": "^2.2.4",
+    "@tiptap/react": "^2.2.4",
+    "@tiptap/starter-kit": "^2.2.4",
+    "csv-parse": "^5.5.3",
+    "next": "^14.2.35",
+    "react": "^18",
+    "react-dom": "^18",
+    "resend": "^3.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "prisma": "^5.10.0",
+    "typescript": "^5"
+  }
+}

@@ -1,0 +1,747 @@
+'use client'
+import { useState, useEffect, useRef } from 'react'
+import styles from './page.module.css'
+
+// ─── Types ───────────────────────────────────────────────
+interface Template { id: string; name: string; subject: string; body: string; updatedAt: string }
+interface Campaign { id: string; name: string; status: string; template: { name: string; subject: string }; total: number; sent: number; opened: number; errors: number; createdAt: string; scheduledAt?: string }
+interface Recipient { id: string; email: string; data: any; status: string; sentAt?: string; openedAt?: string; error?: string }
+
+type Tab = 'campaigns' | 'compose' | 'dashboard'
+
+export default function App() {
+  const [tab, setTab]               = useState<Tab>('campaigns')
+  const [templates, setTemplates]   = useState<Template[]>([])
+  const [campaigns, setCampaigns]   = useState<Campaign[]>([])
+  const [toast, setToast]           = useState<{msg: string, type: 'success'|'error'|'info'} | null>(null)
+
+  useEffect(() => { loadTemplates(); loadCampaigns() }, [])
+
+  async function loadTemplates() {
+    const r = await fetch('/api/templates'); setTemplates(await r.json())
+  }
+  async function loadCampaigns() {
+    const r = await fetch('/api/campaigns'); setCampaigns(await r.json())
+  }
+
+  function showToast(msg: string, type: 'success'|'error'|'info' = 'success') {
+    setToast({ msg, type })
+    setTimeout(() => setToast(null), 3500)
+  }
+
+  return (
+    <div className={styles.app}>
+      {/* Sidebar */}
+      <aside className={styles.sidebar}>
+        <div className={styles.logo}>
+          <span className={styles.logoIcon}>✉</span>
+          <div>
+            <div className={styles.logoTitle}>Mail Merge</div>
+            <div className={styles.logoPro}>PRO</div>
+          </div>
+        </div>
+
+        <nav className={styles.nav}>
+          {([
+            ['campaigns', '◈', 'Campaigns'],
+            ['compose',   '✦', 'Compose'],
+            ['dashboard', '◎', 'Dashboard'],
+          ] as [Tab, string, string][]).map(([key, icon, label]) => (
+            <button
+              key={key}
+              className={`${styles.navItem} ${tab === key ? styles.navActive : ''}`}
+              onClick={() => setTab(key)}
+            >
+              <span className={styles.navIcon}>{icon}</span>
+              <span>{label}</span>
+            </button>
+          ))}
+        </nav>
+
+        <div className={styles.sidebarStats}>
+          <div className={styles.statPill}>
+            <span className={styles.statDot} style={{background:'var(--accent)'}}></span>
+            {campaigns.length} campaigns
+          </div>
+          <div className={styles.statPill}>
+            <span className={styles.statDot} style={{background:'var(--green)'}}></span>
+            {templates.length} templates
+          </div>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <main className={styles.main}>
+        {tab === 'campaigns' && (
+          <CampaignsTab
+            campaigns={campaigns}
+            templates={templates}
+            onRefresh={() => { loadCampaigns(); loadTemplates() }}
+            showToast={showToast}
+          />
+        )}
+        {tab === 'compose' && (
+          <ComposeTab
+            templates={templates}
+            onSaved={() => { loadTemplates(); showToast('Template saved!') }}
+            showToast={showToast}
+          />
+        )}
+        {tab === 'dashboard' && (
+          <DashboardTab campaigns={campaigns} showToast={showToast} />
+        )}
+      </main>
+
+      {/* Toast */}
+      {toast && (
+        <div className={`${styles.toast} ${styles['toast_' + toast.type]}`}>
+          {toast.type === 'success' ? '✓' : toast.type === 'error' ? '✗' : 'i'} {toast.msg}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Campaigns Tab ────────────────────────────────────────
+function CampaignsTab({ campaigns, templates, onRefresh, showToast }: any) {
+  const [creating, setCreating]         = useState(false)
+  const [newName, setNewName]           = useState('')
+  const [newTemplateId, setNewTemplate] = useState('')
+  const [selected, setSelected]         = useState<Campaign | null>(null)
+  const [sending, setSending]           = useState(false)
+
+  async function createCampaign() {
+    if (!newName || !newTemplateId) return showToast('Enter name and select template', 'error')
+    const r = await fetch('/api/campaigns', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName, templateId: newTemplateId })
+    })
+    const c = await r.json()
+    setCreating(false); setNewName(''); setNewTemplate('')
+    onRefresh(); setSelected(c)
+    showToast('Campaign created!')
+  }
+
+  async function deleteCampaign(id: string) {
+    if (!confirm('Delete this campaign?')) return
+    await fetch(`/api/campaigns?id=${id}`, { method: 'DELETE' })
+    if (selected?.id === id) setSelected(null)
+    onRefresh(); showToast('Campaign deleted')
+  }
+
+  const statusColor: any = { draft: 'var(--text3)', sending: 'var(--orange)', done: 'var(--green)', scheduled: 'var(--purple)' }
+
+  if (selected) return (
+    <CampaignDetail
+      campaign={selected}
+      onBack={() => { setSelected(null); onRefresh() }}
+      showToast={showToast}
+    />
+  )
+
+  return (
+    <div className={styles.tabContent}>
+      <div className={styles.pageHeader}>
+        <div>
+          <h1 className={styles.pageTitle}>Campaigns</h1>
+          <p className={styles.pageSubtitle}>Manage and send your mail merge campaigns</p>
+        </div>
+        <button className={styles.btnPrimary} onClick={() => setCreating(true)}>+ New Campaign</button>
+      </div>
+
+      {creating && (
+        <div className={styles.card} style={{marginBottom: 20}}>
+          <div className={styles.cardTitle}>New Campaign</div>
+          <div className={styles.formRow}>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Campaign Name</label>
+              <input className={styles.input} value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. Prof Outreach Jan 2025" />
+            </div>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Template</label>
+              <select className={styles.input} value={newTemplateId} onChange={e => setNewTemplate(e.target.value)}>
+                <option value="">Select template…</option>
+                {templates.map((t: Template) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className={styles.formActions}>
+            <button className={styles.btnGhost} onClick={() => setCreating(false)}>Cancel</button>
+            <button className={styles.btnPrimary} onClick={createCampaign}>Create</button>
+          </div>
+        </div>
+      )}
+
+      {!campaigns.length ? (
+        <div className={styles.empty}>
+          <div className={styles.emptyIcon}>◈</div>
+          <div className={styles.emptyTitle}>No campaigns yet</div>
+          <div className={styles.emptyText}>Create your first campaign to get started</div>
+        </div>
+      ) : (
+        <div className={styles.campaignGrid}>
+          {campaigns.map((c: Campaign) => (
+            <div key={c.id} className={styles.campaignCard} onClick={() => setSelected(c)}>
+              <div className={styles.campaignCardHeader}>
+                <div className={styles.campaignName}>{c.name}</div>
+                <span className={styles.badge} style={{background: statusColor[c.status] + '22', color: statusColor[c.status]}}>
+                  {c.status}
+                </span>
+              </div>
+              <div className={styles.campaignTemplate}>{c.template?.name}</div>
+              <div className={styles.campaignStats}>
+                <div className={styles.cStat}><span>{c.total}</span> recipients</div>
+                <div className={styles.cStat}><span style={{color:'var(--accent)'}}>{c.sent}</span> sent</div>
+                <div className={styles.cStat}><span style={{color:'var(--green)'}}>{c.opened}</span> opened</div>
+              </div>
+              <div className={styles.campaignDate}>{new Date(c.createdAt).toLocaleDateString('en-PK', {day:'2-digit',month:'short',year:'numeric'})}</div>
+              <button className={styles.deleteBtn} onClick={e => { e.stopPropagation(); deleteCampaign(c.id) }}>✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Campaign Detail ──────────────────────────────────────
+function CampaignDetail({ campaign, onBack, showToast }: any) {
+  const [recipients, setRecipients]   = useState<Recipient[]>([])
+  const [loading, setLoading]         = useState(false)
+  const [sending, setSending]         = useState(false)
+  const [importTab, setImportTab]     = useState<'csv'|'sheet'|'manual'>('csv')
+  const [sheetUrl, setSheetUrl]       = useState('')
+  const [manualText, setManualText]   = useState('')
+  const [delayMin, setDelayMin]       = useState(30)
+  const [delayMax, setDelayMax]       = useState(90)
+  const [fromName, setFromName]       = useState('')
+  const [fromEmail, setFromEmail]     = useState('')
+  const [scheduleAt, setScheduleAt]   = useState('')
+  const [useSchedule, setUseSchedule] = useState(false)
+  const [columns, setColumns]         = useState<string[]>([])
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { loadRecipients() }, [])
+
+  async function loadRecipients() {
+    setLoading(true)
+    const r = await fetch(`/api/recipients?campaignId=${campaign.id}`)
+    const data = await r.json()
+    setRecipients(data)
+    if (data.length) setColumns(Object.keys(data[0].data || {}))
+    setLoading(false)
+  }
+
+  async function uploadCSV(file: File) {
+    const form = new FormData(); form.append('file', file)
+    const r = await fetch(`/api/recipients?campaignId=${campaign.id}`, { method: 'POST', body: form })
+    const d = await r.json()
+    if (d.error) return showToast(d.error, 'error')
+    showToast(`Imported ${d.count} recipients!`); loadRecipients()
+  }
+
+  async function importSheet() {
+    if (!sheetUrl) return showToast('Enter a Google Sheet URL', 'error')
+    showToast('Importing from Google Sheet…', 'info')
+    const r = await fetch('/api/import-sheet', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ url: sheetUrl }) })
+    const d = await r.json()
+    if (d.error) return showToast(d.error, 'error')
+
+    const r2 = await fetch(`/api/recipients?campaignId=${campaign.id}`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ recipients: d.records, columns: d.columns })
+    })
+    const d2 = await r2.json()
+    if (d2.error) return showToast(d2.error, 'error')
+    showToast(`Imported ${d2.count} recipients from Sheet!`); loadRecipients()
+  }
+
+  async function importManual() {
+    if (!manualText.trim()) return showToast('Paste some data first', 'error')
+    try {
+      const records = parse(manualText, { columns: true, skip_empty_lines: true, trim: true })
+      const r = await fetch(`/api/recipients?campaignId=${campaign.id}`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ recipients: records, columns: Object.keys(records[0] || {}) })
+      })
+      const d = await r.json()
+      if (d.error) return showToast(d.error, 'error')
+      showToast(`Added ${d.count} recipients!`); loadRecipients()
+    } catch {
+      showToast('Could not parse data. Make sure first row has column names.', 'error')
+    }
+  }
+
+  function parse(text: string, opts: any) {
+    const lines   = text.trim().split('\n').map(l => l.trim()).filter(Boolean)
+    if (!lines.length) return []
+    const headers = lines[0].split('\t').map(h => h.trim())
+    return lines.slice(1).map(line => {
+      const vals = line.split('\t')
+      const obj: any = {}
+      headers.forEach((h, i) => obj[h] = vals[i] || '')
+      return obj
+    })
+  }
+
+  async function clearRecipients() {
+    if (!confirm('Remove all recipients?')) return
+    await fetch(`/api/recipients?campaignId=${campaign.id}`, { method: 'DELETE' })
+    setRecipients([]); setColumns([])
+    showToast('Recipients cleared')
+  }
+
+  async function startSend() {
+    if (!recipients.length) return showToast('Add recipients first', 'error')
+    setSending(true)
+    const r = await fetch('/api/send', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        campaignId: campaign.id,
+        delayMin, delayMax, fromName, fromEmail,
+        scheduleAt: useSchedule && scheduleAt ? scheduleAt : undefined
+      })
+    })
+    const d = await r.json()
+    setSending(false)
+    if (d.error) return showToast(d.error, 'error')
+    if (d.scheduled) return showToast('Scheduled successfully!')
+    showToast(`Sent ${d.sentCount} emails!`)
+    loadRecipients()
+  }
+
+  const pending = recipients.filter(r => r.status === 'pending').length
+  const sent    = recipients.filter(r => r.status === 'sent').length
+  const opened  = recipients.filter(r => r.openedAt).length
+
+  return (
+    <div className={styles.tabContent}>
+      <div className={styles.pageHeader}>
+        <div style={{display:'flex',alignItems:'center',gap:12}}>
+          <button className={styles.backBtn} onClick={onBack}>←</button>
+          <div>
+            <h1 className={styles.pageTitle}>{campaign.name}</h1>
+            <p className={styles.pageSubtitle}>{campaign.template?.name} · {campaign.template?.subject}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.detailGrid}>
+        {/* Left — Recipients */}
+        <div className={styles.detailLeft}>
+          <div className={styles.card}>
+            <div className={styles.cardHeader}>
+              <div className={styles.cardTitle}>Recipients</div>
+              <div style={{display:'flex',gap:8}}>
+                {recipients.length > 0 && <button className={styles.btnGhost} onClick={clearRecipients}>Clear all</button>}
+              </div>
+            </div>
+
+            {/* Import tabs */}
+            <div className={styles.importTabs}>
+              {(['csv','sheet','manual'] as const).map(t => (
+                <button key={t} className={`${styles.importTab} ${importTab===t?styles.importTabActive:''}`} onClick={() => setImportTab(t)}>
+                  {t === 'csv' ? '📄 CSV' : t === 'sheet' ? '📊 Google Sheet' : '✏️ Paste'}
+                </button>
+              ))}
+            </div>
+
+            {importTab === 'csv' && (
+              <div className={styles.dropzone} onClick={() => fileRef.current?.click()}
+                onDragOver={e => e.preventDefault()}
+                onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if(f) uploadCSV(f) }}>
+                <input ref={fileRef} type="file" accept=".csv" style={{display:'none'}} onChange={e => { if(e.target.files?.[0]) uploadCSV(e.target.files[0]) }} />
+                <div className={styles.dropzoneIcon}>⬆</div>
+                <div className={styles.dropzoneText}>Drop CSV file here or click to upload</div>
+                <div className={styles.dropzoneHint}>First row must be column headers</div>
+              </div>
+            )}
+
+            {importTab === 'sheet' && (
+              <div className={styles.importPanel}>
+                <label className={styles.label}>Google Sheet URL</label>
+                <input className={styles.input} value={sheetUrl} onChange={e => setSheetUrl(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/..." />
+                <div className={styles.hint}>Sheet must be set to "Anyone with the link can view"</div>
+                <button className={styles.btnPrimary} style={{marginTop:10}} onClick={importSheet}>Import</button>
+              </div>
+            )}
+
+            {importTab === 'manual' && (
+              <div className={styles.importPanel}>
+                <label className={styles.label}>Paste tab-separated data (copy from Excel/Sheets)</label>
+                <textarea className={styles.textarea} rows={6} value={manualText} onChange={e => setManualText(e.target.value)} placeholder={'Name\tEmail\tUniversity\nProf. Smith\tsmith@uni.edu\tMIT'} />
+                <button className={styles.btnPrimary} style={{marginTop:10}} onClick={importManual}>Add Recipients</button>
+              </div>
+            )}
+
+            {/* Stats bar */}
+            {recipients.length > 0 && (
+              <div className={styles.recipientStats}>
+                <span>{recipients.length} total</span>
+                <span style={{color:'var(--text3)'}}>·</span>
+                <span style={{color:'var(--orange)'}}>{pending} pending</span>
+                <span style={{color:'var(--text3)'}}>·</span>
+                <span style={{color:'var(--accent)'}}>{sent} sent</span>
+                <span style={{color:'var(--text3)'}}>·</span>
+                <span style={{color:'var(--green)'}}>{opened} opened</span>
+              </div>
+            )}
+
+            {/* Recipients table */}
+            {recipients.length > 0 && (
+              <div className={styles.tableWrap}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Email</th>
+                      {columns.slice(0,3).filter(c => !c.toLowerCase().includes('email')).map(c => <th key={c}>{c}</th>)}
+                      <th>Status</th>
+                      <th>Opened</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recipients.map(r => (
+                      <tr key={r.id}>
+                        <td className={styles.emailCell}>{r.email}</td>
+                        {columns.slice(0,3).filter(c => !c.toLowerCase().includes('email')).map(c => (
+                          <td key={c}>{(r.data as any)[c] || '—'}</td>
+                        ))}
+                        <td>
+                          <span className={styles.statusBadge} data-status={r.status}>
+                            {r.status === 'sent' ? '✓ Sent' : r.status === 'error' ? '✗ Error' : '· Pending'}
+                          </span>
+                        </td>
+                        <td>{r.openedAt ? <span style={{color:'var(--green)',fontSize:11}}>{new Date(r.openedAt).toLocaleString('en-PK',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true})}</span> : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right — Send options */}
+        <div className={styles.detailRight}>
+          <div className={styles.card}>
+            <div className={styles.cardTitle}>Send Settings</div>
+
+            <div className={styles.formGroup}>
+              <label className={styles.label}>From Name</label>
+              <input className={styles.input} value={fromName} onChange={e => setFromName(e.target.value)} placeholder="Your Name" />
+            </div>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>From Email</label>
+              <input className={styles.input} value={fromEmail} onChange={e => setFromEmail(e.target.value)} placeholder="you@yourdomain.com" />
+              <div className={styles.hint}>Must be verified in Resend</div>
+            </div>
+
+            <div className={styles.divider}></div>
+
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Delay Between Emails</label>
+              <div className={styles.rangeRow}>
+                <input className={styles.input} type="number" value={delayMin} onChange={e => setDelayMin(+e.target.value)} min={5} />
+                <span className={styles.rangeSep}>to</span>
+                <input className={styles.input} type="number" value={delayMax} onChange={e => setDelayMax(+e.target.value)} min={5} />
+                <span className={styles.rangeUnit}>sec</span>
+              </div>
+            </div>
+
+            <div className={styles.divider}></div>
+
+            <div className={styles.toggleRow}>
+              <label className={styles.label}>Schedule for Later</label>
+              <button className={`${styles.toggle} ${useSchedule ? styles.toggleOn : ''}`} onClick={() => setUseSchedule(!useSchedule)}>
+                <span className={styles.toggleThumb}></span>
+              </button>
+            </div>
+
+            {useSchedule && (
+              <div className={styles.formGroup} style={{marginTop:10}}>
+                <label className={styles.label}>Send At</label>
+                <input className={styles.input} type="datetime-local" value={scheduleAt} onChange={e => setScheduleAt(e.target.value)} />
+              </div>
+            )}
+
+            <div className={styles.divider}></div>
+
+            <button
+              className={styles.sendBtn}
+              onClick={startSend}
+              disabled={sending || !recipients.length}
+            >
+              {sending ? (
+                <span className={styles.sendingDots}>Sending<span>...</span></span>
+              ) : useSchedule ? '📅 Schedule' : `🚀 Send to ${pending || recipients.length} recipients`}
+            </button>
+
+            {campaign.status === 'done' && pending > 0 && (
+              <div className={styles.hint} style={{textAlign:'center',marginTop:8}}>
+                {pending} pending recipients — will send to them
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Compose Tab ──────────────────────────────────────────
+function ComposeTab({ templates, onSaved, showToast }: any) {
+  const [selected, setSelected] = useState<Template | null>(null)
+  const [name, setName]         = useState('')
+  const [subject, setSubject]   = useState('')
+  const [body, setBody]         = useState('')
+  const [saving, setSaving]     = useState(false)
+
+  function newTemplate() { setSelected(null); setName(''); setSubject(''); setBody('') }
+  function editTemplate(t: Template) { setSelected(t); setName(t.name); setSubject(t.subject); setBody(t.body) }
+
+  function detectPlaceholders() {
+    const all = subject + ' ' + body
+    const matches = all.match(/\{\{([^}]+)\}\}/g) || []
+    return [...new Set(matches.map(m => m.replace(/\{\{|\}\}/g, '').trim()))]
+  }
+
+  async function saveTemplate() {
+    if (!name || !subject || !body) return showToast('Fill in name, subject and body', 'error')
+    setSaving(true)
+    const r = await fetch('/api/templates', {
+      method: selected ? 'PUT' : 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ id: selected?.id, name, subject, body })
+    })
+    setSaving(false)
+    if (!r.ok) return showToast('Failed to save', 'error')
+    onSaved()
+  }
+
+  async function deleteTemplate(id: string) {
+    if (!confirm('Delete this template?')) return
+    await fetch(`/api/templates?id=${id}`, { method: 'DELETE' })
+    if (selected?.id === id) newTemplate()
+    onSaved()
+    showToast('Template deleted')
+  }
+
+  const placeholders = detectPlaceholders()
+
+  return (
+    <div className={styles.tabContent}>
+      <div className={styles.pageHeader}>
+        <div>
+          <h1 className={styles.pageTitle}>Templates</h1>
+          <p className={styles.pageSubtitle}>Write reusable email templates with {'{{'} placeholders {'}}'}}</p>
+        </div>
+        <button className={styles.btnPrimary} onClick={newTemplate}>+ New Template</button>
+      </div>
+
+      <div className={styles.composeGrid}>
+        {/* Template list */}
+        <div className={styles.templateList}>
+          {!templates.length && (
+            <div className={styles.empty} style={{padding:'30px 20px'}}>
+              <div className={styles.emptyIcon} style={{fontSize:24}}>✦</div>
+              <div className={styles.emptyText}>No templates yet</div>
+            </div>
+          )}
+          {templates.map((t: Template) => (
+            <div key={t.id} className={`${styles.templateItem} ${selected?.id === t.id ? styles.templateItemActive : ''}`} onClick={() => editTemplate(t)}>
+              <div className={styles.templateItemName}>{t.name}</div>
+              <div className={styles.templateItemSubject}>{t.subject}</div>
+              <div className={styles.templateItemDate}>{new Date(t.updatedAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})}</div>
+              <button className={styles.deleteBtn} onClick={e => { e.stopPropagation(); deleteTemplate(t.id) }}>✕</button>
+            </div>
+          ))}
+        </div>
+
+        {/* Editor */}
+        <div className={styles.card} style={{flex:1}}>
+          <div className={styles.formGroup}>
+            <label className={styles.label}>Template Name</label>
+            <input className={styles.input} value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Masters Admission Inquiry" />
+          </div>
+          <div className={styles.formGroup}>
+            <label className={styles.label}>Subject Line</label>
+            <input className={styles.input} value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Inquiry Regarding PhD Supervision — {{Name}}" />
+          </div>
+          <div className={styles.formGroup}>
+            <label className={styles.label}>Email Body</label>
+            <textarea
+              className={styles.textarea}
+              rows={14}
+              value={body}
+              onChange={e => setBody(e.target.value)}
+              placeholder={'Dear Prof. {{Professor Name}},\n\nI am writing to inquire about PhD supervision opportunities in your lab at {{University}}...\n\nBest regards,\n{{Your Name}}'}
+            />
+          </div>
+
+          {placeholders.length > 0 && (
+            <div className={styles.phPanel}>
+              <div className={styles.phLabel}>Detected placeholders</div>
+              <div className={styles.phChips}>
+                {placeholders.map(p => (
+                  <span key={p} className={styles.phChip}>{'{{'}{p}{'}}'}</span>
+                ))}
+              </div>
+              <div className={styles.hint}>These will be replaced with data from your recipient list</div>
+            </div>
+          )}
+
+          <div className={styles.formActions} style={{marginTop:16}}>
+            {selected && <button className={styles.btnGhost} onClick={newTemplate}>New Template</button>}
+            <button className={styles.btnPrimary} onClick={saveTemplate} disabled={saving}>
+              {saving ? 'Saving…' : selected ? 'Update Template' : 'Save Template'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Dashboard Tab ────────────────────────────────────────
+function DashboardTab({ campaigns, showToast }: any) {
+  const [campaignId, setCampaignId] = useState<string>('')
+  const [recipients, setRecipients] = useState<Recipient[]>([])
+  const [loading, setLoading]       = useState(false)
+  const [status, setStatus]         = useState('all')
+  const [dateFrom, setDateFrom]     = useState('')
+  const [dateTo, setDateTo]         = useState('')
+  const [search, setSearch]         = useState('')
+
+  async function loadData() {
+    if (!campaignId) return
+    setLoading(true)
+    const params = new URLSearchParams({ campaignId })
+    if (status !== 'all') params.set('status', status)
+    if (dateFrom) params.set('dateFrom', dateFrom)
+    if (dateTo)   params.set('dateTo', dateTo)
+    if (search)   params.set('search', search)
+    const r = await fetch(`/api/recipients?${params}`)
+    setRecipients(await r.json())
+    setLoading(false)
+  }
+
+  useEffect(() => { loadData() }, [campaignId])
+
+  const campaign  = campaigns.find((c: Campaign) => c.id === campaignId)
+  const total     = recipients.length
+  const opened    = recipients.filter(r => r.openedAt).length
+  const notOpened = recipients.filter(r => r.status === 'sent' && !r.openedAt).length
+  const openRate  = total ? Math.round((opened / total) * 100) : 0
+
+  async function exportCSV() {
+    if (!recipients.length) return showToast('No data to export', 'error')
+    const rows = [
+      ['Email', 'Status', 'Sent At', 'Opened At'],
+      ...recipients.map(r => [r.email, r.status, r.sentAt ? new Date(r.sentAt).toLocaleString() : '', r.openedAt ? new Date(r.openedAt).toLocaleString() : ''])
+    ]
+    const csv  = rows.map(r => r.join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const a    = document.createElement('a'); a.href = URL.createObjectURL(blob)
+    a.download = `campaign-${campaignId}-export.csv`; a.click()
+    showToast('Exported!')
+  }
+
+  return (
+    <div className={styles.tabContent}>
+      <div className={styles.pageHeader}>
+        <div>
+          <h1 className={styles.pageTitle}>Dashboard</h1>
+          <p className={styles.pageSubtitle}>Track opens, filter by date, export follow-up lists</p>
+        </div>
+        <button className={styles.btnGhost} onClick={exportCSV}>⬇ Export CSV</button>
+      </div>
+
+      {/* Campaign selector */}
+      <div className={styles.card} style={{marginBottom:16}}>
+        <select className={styles.input} value={campaignId} onChange={e => setCampaignId(e.target.value)} style={{maxWidth:400}}>
+          <option value="">Select a campaign…</option>
+          {campaigns.map((c: Campaign) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+      </div>
+
+      {campaignId && (
+        <>
+          {/* Stat cards */}
+          <div className={styles.statCards}>
+            {[
+              { label: 'Total Sent', value: campaign?.sent || 0, color: 'var(--accent)' },
+              { label: 'Opened',     value: opened,               color: 'var(--green)' },
+              { label: 'Not Opened', value: notOpened,            color: 'var(--orange)' },
+              { label: 'Open Rate',  value: openRate + '%',       color: 'var(--purple)' },
+            ].map(s => (
+              <div key={s.label} className={styles.statCard}>
+                <div className={styles.statNum} style={{color: s.color}}>{s.value}</div>
+                <div className={styles.statLabel}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Filters */}
+          <div className={styles.filters}>
+            <select className={styles.input} style={{width:160}} value={status} onChange={e => setStatus(e.target.value)}>
+              <option value="all">All Statuses</option>
+              <option value="opened">✓ Opened</option>
+              <option value="not_opened">✗ Not Opened</option>
+              <option value="sent">Sent</option>
+              <option value="pending">Pending</option>
+              <option value="error">Error</option>
+            </select>
+            <input className={styles.input} type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{width:150}} />
+            <input className={styles.input} type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   style={{width:150}} />
+            <input className={styles.input} value={search} onChange={e => setSearch(e.target.value)} placeholder="Search email…" style={{width:200}} />
+            <button className={styles.btnPrimary} onClick={loadData}>Apply</button>
+            <button className={styles.btnGhost} onClick={() => { setStatus('all'); setDateFrom(''); setDateTo(''); setSearch(''); setTimeout(loadData, 50) }}>Reset</button>
+          </div>
+
+          {/* Table */}
+          <div className={styles.card}>
+            <div className={styles.cardHeader}>
+              <div className={styles.cardTitle}>Results</div>
+              <div className={styles.resultCount}>{recipients.length} recipient{recipients.length !== 1 ? 's' : ''}</div>
+            </div>
+            {loading ? (
+              <div className={styles.loadingRow}>Loading…</div>
+            ) : !recipients.length ? (
+              <div className={styles.loadingRow} style={{color:'var(--text3)'}}>No results match your filters</div>
+            ) : (
+              <div className={styles.tableWrap}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Email</th>
+                      <th>Status</th>
+                      <th>Sent At</th>
+                      <th>Opened At</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recipients.map(r => (
+                      <tr key={r.id}>
+                        <td className={styles.emailCell}>{r.email}</td>
+                        <td>
+                          <span className={styles.statusBadge} data-status={r.openedAt ? 'opened' : r.status}>
+                            {r.openedAt ? '👁 Opened' : r.status === 'sent' ? '✓ Sent' : r.status === 'error' ? '✗ Error' : '· Pending'}
+                          </span>
+                        </td>
+                        <td className={styles.dateCell}>{r.sentAt ? new Date(r.sentAt).toLocaleString('en-PK',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true}) : '—'}</td>
+                        <td className={styles.dateCell}>{r.openedAt ? <span style={{color:'var(--green)'}}>{new Date(r.openedAt).toLocaleString('en-PK',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true})}</span> : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
