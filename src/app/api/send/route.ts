@@ -2,9 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendEmail, replacePlaceholders, randomDelay } from '@/lib/email'
 import { randomUUID } from 'crypto'
-
-export const maxDuration = 300
-
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const { campaignId, delayMin = 30, delayMax = 90, dailyLimit = 450, fromName, fromEmail, scheduleAt } = body
