@@ -147,7 +147,12 @@ function CampaignsTab({ campaigns, templates, onRefresh, showToast }: any) {
           <h1 className={styles.pageTitle}>Campaigns</h1>
           <p className={styles.pageSubtitle}>Manage and send your mail merge campaigns</p>
         </div>
-        <button className={styles.btnPrimary} onClick={() => setCreating(true)}>+ New Campaign</button>
+        <div style={{display:'flex',gap:8}}>
+          <button className={styles.refreshBtn} onClick={() => { onRefresh(); showToast('Refreshed!', 'info') }}>
+            <span className={styles.refreshIcon}>↻</span> Refresh
+          </button>
+          <button className={styles.btnPrimary} onClick={() => setCreating(true)}>+ New Campaign</button>
+        </div>
       </div>
 
       {creating && (
@@ -327,6 +332,9 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
             <p className={styles.pageSubtitle}>{campaign.template?.name} · {campaign.template?.subject}</p>
           </div>
         </div>
+        <button className={styles.refreshBtn} onClick={() => { loadRecipients(); showToast('Refreshed!', 'info') }}>
+          <span className={styles.refreshIcon}>↻</span> Refresh
+        </button>
       </div>
 
       <div className={styles.detailGrid}>
@@ -536,7 +544,7 @@ function ComposeTab({ templates, onSaved, showToast }: any) {
       <div className={styles.pageHeader}>
         <div>
           <h1 className={styles.pageTitle}>Templates</h1>
-          <p className={styles.pageSubtitle}>Write reusable email templates with {'{{'}placeholders{'}}'}</p>
+          <p className={styles.pageSubtitle}>Write reusable email templates with {'{{'} placeholders {'}}'}}</p>
         </div>
         <button className={styles.btnPrimary} onClick={newTemplate}>+ New Template</button>
       </div>
@@ -656,7 +664,12 @@ function DashboardTab({ campaigns, showToast }: any) {
           <h1 className={styles.pageTitle}>Dashboard</h1>
           <p className={styles.pageSubtitle}>Track opens, filter by date, export follow-up lists</p>
         </div>
-        <button className={styles.btnGhost} onClick={exportCSV}>⬇ Export CSV</button>
+        <div style={{display:'flex',gap:8}}>
+          <button className={styles.refreshBtn} onClick={loadData}>
+            <span className={styles.refreshIcon}>↻</span> Refresh
+          </button>
+          <button className={styles.btnGhost} onClick={exportCSV}>⬇ Export CSV</button>
+        </div>
       </div>
 
       {/* Campaign selector */}
