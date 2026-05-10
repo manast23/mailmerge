@@ -544,7 +544,7 @@ function ComposeTab({ templates, onSaved, showToast }: any) {
       <div className={styles.pageHeader}>
         <div>
           <h1 className={styles.pageTitle}>Templates</h1>
-          <p className={styles.pageSubtitle}>Write reusable email templates with {'{{'} placeholders {'}}'}}</p>
+          <p className={styles.pageSubtitle}>Write reusable email templates with {'{{'}placeholders{'}}'}</p>
         </div>
         <button className={styles.btnPrimary} onClick={newTemplate}>+ New Template</button>
       </div>
