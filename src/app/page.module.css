@@ -1,27 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
 
-:root {
-  --bg:        #f0f4f8;
-  --bg2:       #ffffff;
-  --bg3:       #f5f7fa;
-  --border:    #e2e8f0;
-  --border2:   #cbd5e1;
-  --text:      #1a202c;
-  --text2:     #4a5568;
-  --text3:     #94a3b8;
-  --accent:    #3b82f6;
-  --accent2:   #2563eb;
-  --green:     #10b981;
-  --green2:    #059669;
-  --orange:    #f59e0b;
-  --red:       #ef4444;
-  --purple:    #8b5cf6;
-  --radius:    10px;
-  --radius2:   14px;
-  --shadow:    0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
-  --shadow2:   0 4px 12px rgba(0,0,0,0.08);
-}
-
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html { font-size: 14px; }
