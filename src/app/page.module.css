@@ -122,7 +122,8 @@
 /* ─── Main ───────────────────────────── */
 .main {
   flex: 1;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   min-width: 0;
 }
 
@@ -555,7 +556,7 @@
 
 /* ─── Table Container (Scrollable) ───── */
 .tableContainer {
-  max-height: calc(100vh - 380px);
+  max-height: 400px;
   overflow-y: auto;
   border-radius: var(--radius);
   border: 1px solid var(--border);
