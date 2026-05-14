@@ -122,14 +122,15 @@
 /* ─── Main ───────────────────────────── */
 .main {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   min-width: 0;
 }
 
 .tabContent {
   padding: 28px 32px;
   max-width: 1200px;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .pageHeader {
