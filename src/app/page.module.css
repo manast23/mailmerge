@@ -556,8 +556,9 @@
 
 /* ─── Table Container (Scrollable) ───── */
 .tableContainer {
-  max-height: 400px;
+  max-height: 500px;
   overflow-y: auto;
+  overflow-x: auto;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   margin-top: 4px;
@@ -565,6 +566,7 @@
 
 .tableContainer::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 
 .tableContainer::-webkit-scrollbar-track {
