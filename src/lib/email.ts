@@ -1,6 +1,12 @@
-import { Resend } from 'resend'
+import nodemailer from 'nodemailer'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_APP_PASSWORD,
+  },
+})
 
 export function replacePlaceholders(text: string, data: Record<string, string>): string {
   return text.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
@@ -19,7 +25,6 @@ export async function sendEmail({
   html,
   trackId,
   fromName,
-  fromEmail,
 }: {
   to: string
   subject: string
@@ -33,28 +38,28 @@ export async function sendEmail({
   const pixelUrl = `${baseUrl}/api/track?t=${trackId}`
   const trackedHtml = html + `<img src="${pixelUrl}" width="1" height="1" style="display:none;border:0;outline:none" alt="" />`
 
-  const from = fromName && fromEmail
-    ? `${fromName} <${fromEmail}>`
-    : `Mail Merge Pro <${process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'}>`
+  const fromAddress = fromName
+    ? `${fromName} <${process.env.GMAIL_USER}>`
+    : `${process.env.GMAIL_USER}`
 
-  console.log('--- Resend Debug ---')
+  console.log('--- Gmail SMTP Debug ---')
   console.log('To:', to)
-  console.log('From:', from)
+  console.log('From:', fromAddress)
   console.log('Subject:', subject)
-  console.log('API Key exists:', !!process.env.RESEND_API_KEY)
-  console.log('API Key prefix:', process.env.RESEND_API_KEY?.substring(0, 8))
+  console.log('Gmail user exists:', !!process.env.GMAIL_USER)
 
   try {
-    const result = await resend.emails.send({
-      from,
+    const result = await transporter.sendMail({
+      from: fromAddress,
       to,
       subject,
       html: trackedHtml,
+      replyTo: process.env.GMAIL_USER,
     })
-    console.log('Resend result:', JSON.stringify(result))
+    console.log('Gmail result:', result.messageId)
     return result
   } catch (err: any) {
-    console.error('Resend error:', err.message)
+    console.error('Gmail SMTP error:', err.message)
     throw err
   }
 }
