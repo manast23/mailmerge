@@ -4,7 +4,7 @@ import styles from './page.module.css'
 
 // ─── Types ───────────────────────────────────────────────
 interface Template { id: string; name: string; subject: string; body: string; updatedAt: string }
-interface Campaign { id: string; name: string; status: string; template: { name: string; subject: string }; total: number; sent: number; opened: number; errors: number; createdAt: string; scheduled?: string; recipients?: string[] }
+interface Campaign { id: string; name: string; status: string; template: { name: string; subject: string }; total: number; sent: number; opened: number; errors: number; createdAt: string; scheduled?: [...]
 interface Recipient { id: string; email: string; data: any; status: string; sentAt?: string; openedAt?: string; error?: string }
 
 type Tab = 'campaigns' | 'compose' | 'dashboard'
@@ -380,7 +380,7 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
             {importTab === 'manual' && (
               <div className={styles.importPanel}>
                 <label className={styles.label}>Paste tab-separated data (copy from Excel/Sheets)</label>
-                <textarea className={styles.textarea} rows={6} value={manualText} onChange={e => setManualText(e.target.value)} placeholder={'Name\tEmail\tUniversity\nProf. Smith\tsmith@uni.edu\t[...]'} />
+                <textarea className={styles.textarea} rows={6} value={manualText} onChange={e => setManualText(e.target.value)} placeholder={'Name\tEmail\tUniversity\nProf. Smith\tsmith@uni.edu\t[...]
                 <button className={styles.btnPrimary} style={{marginTop:10}} onClick={importManual}>Add Recipients</button>
               </div>
             )}
@@ -400,7 +400,7 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
 
             {/* Recipients table */}
             {recipients.length > 0 && (
-              <div className={styles.tableWrap}>
+              <div className={styles.tableContainer}>
                 <table className={styles.table}>
                   <thead>
                     <tr>
@@ -422,7 +422,7 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
                             {r.status === 'sent' ? '✓ Sent' : r.status === 'error' ? '✗ Error' : '· Pending'}
                           </span>
                         </td>
-                        <td>{r.openedAt ? <span style={{color:'var(--green)',fontSize:11}}>{new Date(r.openedAt).toLocaleString('en-PK',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</span> : '—'}</td>
+                        <td>{r.openedAt ? <span style={{color:'var(--green)',fontSize:11}}>{new Date(r.openedAt).toLocaleString('en-PK',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit[...]
                       </tr>
                     ))}
                   </tbody>
@@ -725,7 +725,7 @@ function DashboardTab({ campaigns, showToast }: any) {
             ) : !recipients.length ? (
               <div className={styles.loadingRow} style={{color:'var(--text3)'}}>No results match your filters</div>
             ) : (
-              <div className={styles.tableWrap}>
+              <div className={styles.tableContainer}>
                 <table className={styles.table}>
                   <thead>
                     <tr>
@@ -744,8 +744,8 @@ function DashboardTab({ campaigns, showToast }: any) {
                             {r.openedAt ? '👁 Opened' : r.status === 'sent' ? '✓ Sent' : r.status === 'error' ? '✗ Error' : '· Pending'}
                           </span>
                         </td>
-                        <td className={styles.dateCell}>{r.sentAt ? new Date(r.sentAt).toLocaleString('en-PK',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true}) : '—'}</td>
-                        <td className={styles.dateCell}>{r.openedAt ? <span style={{color:'var(--green)'}}>{new Date(r.openedAt).toLocaleString('en-PK',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true})}</span> : '—'}</td>
+                        <td className={styles.dateCell}>{r.sentAt ? new Date(r.sentAt).toLocaleString('en-PK',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:tr[...]
+                        <td className={styles.dateCell}>{r.openedAt ? <span style={{color:'var(--green)'}}>{new Date(r.openedAt).toLocaleString('en-PK',{day:'2-digit',month:'short',year:'numeric'[...]
                       </tr>
                     ))}
                   </tbody>
