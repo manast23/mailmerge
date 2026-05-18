@@ -4,7 +4,7 @@ import styles from './page.module.css'
 
 // ─── Types ───────────────────────────────────────────────
 interface Template { id: string; name: string; subject: string; body: string; updatedAt: string }
-interface Campaign { id: string; name: string; status: string; template: { name: string; subject: string }; total: number; sent: number; opened: number; errors: number; createdAt: string; scheduled?: [...]
+interface Campaign { id: string; name: string; status: string; template: { name: string; subject: string }; total: number; sent: number; opened: number; errors: number; createdAt: string; scheduled?: string }
 interface Recipient { id: string; email: string; data: any; status: string; sentAt?: string; openedAt?: string; error?: string }
 
 type Tab = 'campaigns' | 'compose' | 'dashboard'
