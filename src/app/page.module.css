@@ -131,6 +131,7 @@
   max-width: 1200px;
   height: 100vh;
   overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .pageHeader {
@@ -557,7 +558,7 @@
 
 /* ─── Table Container (Scrollable) ───── */
 .tableContainer {
-  max-height: 500px;
+  max-height: calc(100vh - 420px);
   overflow-y: auto;
   overflow-x: auto;
   border-radius: var(--radius);
