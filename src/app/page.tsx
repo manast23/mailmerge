@@ -307,7 +307,7 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
       body: JSON.stringify({
         campaignId: campaign.id,
         delayMin, delayMax, fromName, fromEmail,
-        scheduleAt: useSchedule && scheduleAt ? scheduleAt : undefined
+        scheduleAt: useSchedule && scheduleAt ? new Date(scheduleAt).toISOString() : undefined
       })
     })
     const d = await r.json()
