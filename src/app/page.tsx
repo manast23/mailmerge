@@ -441,12 +441,7 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
               <label className={styles.label}>From Name</label>
               <input className={styles.input} value={fromName} onChange={e => setFromName(e.target.value)} placeholder="Your Name" />
             </div>
-            <div className={styles.formGroup}>
-              <label className={styles.label}>From Email</label>
-              <input className={styles.input} value={fromEmail} onChange={e => setFromEmail(e.target.value)} placeholder="you@yourdomain.com" />
-              <div className={styles.hint}>Must be verified in Resend</div>
-            </div>
-
+            
             <div className={styles.divider}></div>
 
             <div className={styles.formGroup}>
