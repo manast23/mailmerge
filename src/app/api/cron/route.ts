@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
 
       try {
         const subject = replacePlaceholders(campaign.template.subject, data)
-        const html = replacePlaceholders(campaign.template.body, data)
+        const html = replacePlaceholders(campaign.template.body, data).replace(/\n/g, '<br>')
         await sendEmail({ to: recipient.email, subject, html, trackId })
         await prisma.recipient.update({
           where: { id: recipient.id },
