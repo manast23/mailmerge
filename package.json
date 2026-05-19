@@ -10,19 +10,20 @@
   },
   "dependencies": {
     "@prisma/client": "^5.10.0",
+    "@supabase/supabase-js": "^2.39.0",
     "@tiptap/extension-placeholder": "^2.2.4",
     "@tiptap/pm": "^2.2.4",
     "@tiptap/react": "^2.2.4",
     "@tiptap/starter-kit": "^2.2.4",
+    "@types/nodemailer": "^8.0.0",
     "csv-parse": "^5.5.3",
     "next": "^14.2.35",
-    "nodemailer": "^6.9.13",
+    "nodemailer": "^8.0.7",
     "react": "^18",
     "react-dom": "^18"
   },
   "devDependencies": {
     "@types/node": "^20",
-    "@types/nodemailer": "^6.4.14",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "prisma": "^5.10.0",
