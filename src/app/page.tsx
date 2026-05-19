@@ -475,11 +475,11 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
             <button
               className={styles.sendBtn}
               onClick={startSend}
-              disabled={sending || !recipients.length}
+              disabled={sending || pending === 0}
             >
               {sending ? (
                 <span className={styles.sendingDots}>Sending<span>...</span></span>
-              ) : useSchedule ? '📅 Schedule' : `🚀 Send to ${pending || recipients.length} recipients`}
+              ) : useSchedule ? '📅 Schedule' : `🚀 Send to ${pending} recipients`}
             </button>
 
             {campaign.status === 'done' && pending > 0 && (
