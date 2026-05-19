@@ -20,7 +20,10 @@ export async function GET() {
     total:       c._count.recipients,
     sent:        c.recipients.filter(r => r.status === 'sent').length,
     opened:      c.recipients.filter(r => r.openedAt).length,
-    errors:      c.recipients.filter(r => r.status === 'error').length,
+    errors:         c.recipients.filter(r => r.status === 'error').length,
+    attachmentName: c.attachmentName,
+    attachmentUrl:  c.attachmentUrl,
+  }))
   }))
   return NextResponse.json(enriched)
 }
