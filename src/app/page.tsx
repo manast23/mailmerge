@@ -4,7 +4,7 @@ import styles from './page.module.css'
 
 // ─── Types ───────────────────────────────────────────────
 interface Template { id: string; name: string; subject: string; body: string; updatedAt: string }
-interface Campaign { id: string; name: string; status: string; template: { name: string; subject: string }; total: number; sent: number; opened: number; errors: number; createdAt: string; scheduled?: string }
+interface Campaign { id: string; name: string; status: string; template: { name: string; subject: string }; total: number; sent: number; opened: number; errors: number; createdAt: string; scheduled?: string; attachmentName?: string; attachmentUrl?: string }
 interface Recipient { id: string; email: string; data: any; status: string; sentAt?: string; openedAt?: string; error?: string }
 
 type Tab = 'campaigns' | 'compose' | 'dashboard'
@@ -220,12 +220,15 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
   const [manualText, setManualText]   = useState('')
   const [delayMin, setDelayMin]       = useState(30)
   const [delayMax, setDelayMax]       = useState(90)
-  const [fromName, setFromName]       = useState('')
-  const [fromEmail, setFromEmail]     = useState('')
-  const [scheduleAt, setScheduleAt]   = useState('')
-  const [useSchedule, setUseSchedule] = useState(false)
-  const [columns, setColumns]         = useState<string[]>([])
-  const fileRef = useRef<HTMLInputElement>(null)
+  const [fromName, setFromName]             = useState('')
+  const [fromEmail, setFromEmail]           = useState('')
+  const [scheduleAt, setScheduleAt]         = useState('')
+  const [useSchedule, setUseSchedule]       = useState(false)
+  const [columns, setColumns]               = useState<string[]>([])
+  const [attachmentName, setAttachmentName] = useState<string>(campaign.attachmentName || '')
+  const [uploading, setUploading]           = useState(false)
+  const fileRef  = useRef<HTMLInputElement>(null)
+  const attachRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { loadRecipients() }, [])
 
@@ -296,6 +299,29 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
     await fetch(`/api/recipients?campaignId=${campaign.id}`, { method: 'DELETE' })
     setRecipients([]); setColumns([])
     showToast('Recipients cleared')
+  }
+
+  async function uploadAttachment(file: File) {
+    setUploading(true)
+    const form = new FormData()
+    form.append('file', file)
+    form.append('campaignId', campaign.id)
+    const r = await fetch('/api/upload', { method: 'POST', body: form })
+    const d = await r.json()
+    setUploading(false)
+    if (d.error) return showToast(d.error, 'error')
+    setAttachmentName(d.attachmentName)
+    showToast(`Attached: ${d.attachmentName}`)
+  }
+
+  async function removeAttachment() {
+    await fetch('/api/upload', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ campaignId: campaign.id })
+    })
+    setAttachmentName('')
+    showToast('Attachment removed')
   }
 
   async function startSend() {
@@ -469,6 +495,28 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
                 <input className={styles.input} type="datetime-local" value={scheduleAt} onChange={e => setScheduleAt(e.target.value)} />
               </div>
             )}
+
+            <div className={styles.divider}></div>
+
+            {/* Attachment */}
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Attachment</label>
+              {attachmentName ? (
+                <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',background:'var(--bg3)',borderRadius:'var(--radius)',border:'1px solid var(--border)'}}>
+                  <span style={{fontSize:16}}>📎</span>
+                  <span style={{fontSize:12,color:'var(--text)',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{attachmentName}</span>
+                  <button onClick={removeAttachment} style={{background:'none',border:'none',color:'var(--red)',cursor:'pointer',fontSize:14,padding:'0 4px'}}>✕</button>
+                </div>
+              ) : (
+                <div>
+                  <input ref={attachRef} type="file" style={{display:'none'}} accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" onChange={e => { if(e.target.files?.[0]) uploadAttachment(e.target.files[0]) }} />
+                  <button className={styles.btnGhost} style={{width:'100%'}} onClick={() => attachRef.current?.click()} disabled={uploading}>
+                    {uploading ? 'Uploading…' : '📎 Attach File'}
+                  </button>
+                  <div className={styles.hint}>PDF, Word, Excel, or image</div>
+                </div>
+              )}
+            </div>
 
             <div className={styles.divider}></div>
 
