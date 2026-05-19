@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     const trackId   = randomUUID()
     try {
       const subject = replacePlaceholders(campaign.template.subject, data)
-      const html    = replacePlaceholders(campaign.template.body, data)
+      const html    = replacePlaceholders(campaign.template.body, data).replace(/\n/g, '<br>')
       await sendEmail({ to: recipient.email, subject, html, trackId, fromName, fromEmail })
       await prisma.recipient.update({
         where: { id: recipient.id },
