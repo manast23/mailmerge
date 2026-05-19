@@ -544,14 +544,32 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
 
 // ─── Compose Tab ──────────────────────────────────────────
 function ComposeTab({ templates, onSaved, showToast }: any) {
+  const { useEditor, EditorContent } = require('@tiptap/react')
+  const StarterKit = require('@tiptap/starter-kit').default
+
   const [selected, setSelected] = useState<Template | null>(null)
   const [name, setName]         = useState('')
   const [subject, setSubject]   = useState('')
   const [body, setBody]         = useState('')
   const [saving, setSaving]     = useState(false)
 
-  function newTemplate() { setSelected(null); setName(''); setSubject(''); setBody('') }
-  function editTemplate(t: Template) { setSelected(t); setName(t.name); setSubject(t.subject); setBody(t.body) }
+  const editor = useEditor({
+    extensions: [StarterKit],
+    content: body,
+    onUpdate: ({ editor }: any) => {
+      setBody(editor.getHTML())
+    },
+  })
+
+  function newTemplate() {
+    setSelected(null); setName(''); setSubject(''); setBody('')
+    editor?.commands.setContent('')
+  }
+
+  function editTemplate(t: Template) {
+    setSelected(t); setName(t.name); setSubject(t.subject); setBody(t.body)
+    editor?.commands.setContent(t.body)
+  }
 
   function detectPlaceholders() {
     const all = subject + ' ' + body
@@ -623,13 +641,33 @@ function ComposeTab({ templates, onSaved, showToast }: any) {
           </div>
           <div className={styles.formGroup}>
             <label className={styles.label}>Email Body</label>
-            <textarea
-              className={styles.textarea}
-              rows={14}
-              value={body}
-              onChange={e => setBody(e.target.value)}
-              placeholder={'Dear Prof. {{Professor Name}},\n\nI am writing to inquire about PhD supervision opportunities in your lab at {{University}}...\n\nBest regards,\n{{Your Name}}'}
-            />
+            {/* Toolbar */}
+            <div style={{display:'flex',gap:4,padding:'6px 8px',background:'var(--bg3)',border:'1.5px solid var(--border)',borderBottom:'none',borderRadius:'var(--radius) var(--radius) 0 0'}}>
+              {[
+                { label: 'B', action: () => editor?.chain().focus().toggleBold().run(), active: editor?.isActive('bold'), style: {fontWeight:'bold'} },
+                { label: 'I', action: () => editor?.chain().focus().toggleItalic().run(), active: editor?.isActive('italic'), style: {fontStyle:'italic'} },
+                { label: 'U', action: () => editor?.chain().focus().toggleStrike().run(), active: editor?.isActive('strike'), style: {textDecoration:'underline'} },
+              ].map(btn => (
+                <button
+                  key={btn.label}
+                  onClick={btn.action}
+                  style={{
+                    padding:'3px 8px',
+                    border:'1px solid var(--border)',
+                    borderRadius:4,
+                    background: btn.active ? 'var(--accent)' : 'var(--bg2)',
+                    color: btn.active ? 'white' : 'var(--text)',
+                    cursor:'pointer',
+                    fontSize:13,
+                    ...btn.style
+                  }}
+                >{btn.label}</button>
+              ))}
+            </div>
+            {/* Editor */}
+            <div style={{border:'1.5px solid var(--border)',borderRadius:'0 0 var(--radius) var(--radius)',background:'var(--bg3)',minHeight:280,padding:'10px 12px',fontSize:13,color:'var(--text)',lineHeight:1.6,cursor:'text'}} onClick={() => editor?.commands.focus()}>
+              <EditorContent editor={editor} />
+            </div>
           </div>
 
           {placeholders.length > 0 && (
