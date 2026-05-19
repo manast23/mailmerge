@@ -56,8 +56,8 @@ export async function GET(req: NextRequest) {
           subject,
           html,
           trackId,
-          attachmentUrl:  campaign.attachmentUrl  || undefined,
-          attachmentName: campaign.attachmentName || undefined,
+          attachmentUrl:  campaign.template.attachmentUrl  || undefined,
+          attachmentName: campaign.template.attachmentName || undefined,
         })
         await prisma.recipient.update({
           where: { id: recipient.id },
