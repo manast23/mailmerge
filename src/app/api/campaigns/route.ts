@@ -24,7 +24,6 @@ export async function GET() {
     attachmentName: c.attachmentName,
     attachmentUrl:  c.attachmentUrl,
   }))
-  }))
   return NextResponse.json(enriched)
 }
 
