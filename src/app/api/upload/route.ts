@@ -11,16 +11,15 @@ export async function POST(req: NextRequest) {
   try {
     const form = await req.formData()
     const file = form.get('file') as File
-    const campaignId = form.get('campaignId') as string
+    const templateId = form.get('templateId') as string
 
-    if (!file || !campaignId) {
-      return NextResponse.json({ error: 'File and campaignId required' }, { status: 400 })
+    if (!file || !templateId) {
+      return NextResponse.json({ error: 'File and templateId required' }, { status: 400 })
     }
 
-    // Upload to Supabase Storage
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    const fileName = `${campaignId}/${Date.now()}-${file.name}`
+    const fileName = `${templateId}/${Date.now()}-${file.name}`
 
     const { error } = await supabase.storage
       .from('attachments')
@@ -31,16 +30,14 @@ export async function POST(req: NextRequest) {
 
     if (error) throw error
 
-    // Get signed URL (valid for 1 year)
     const { data: urlData } = await supabase.storage
       .from('attachments')
       .createSignedUrl(fileName, 60 * 60 * 24 * 365)
 
     if (!urlData?.signedUrl) throw new Error('Could not get signed URL')
 
-    // Save URL to campaign
-    await prisma.campaign.update({
-      where: { id: campaignId },
+    await prisma.template.update({
+      where: { id: templateId },
       data: {
         attachmentUrl: urlData.signedUrl,
         attachmentName: file.name
@@ -60,9 +57,9 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const { campaignId } = await req.json()
-    await prisma.campaign.update({
-      where: { id: campaignId },
+    const { templateId } = await req.json()
+    await prisma.template.update({
+      where: { id: templateId },
       data: { attachmentUrl: null, attachmentName: null }
     })
     return NextResponse.json({ success: true })
