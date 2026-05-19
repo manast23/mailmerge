@@ -25,6 +25,9 @@ export async function sendEmail({
   html,
   trackId,
   fromName,
+  fromEmail,
+  attachmentUrl,
+  attachmentName,
 }: {
   to: string
   subject: string
@@ -32,9 +35,10 @@ export async function sendEmail({
   trackId: string
   fromName?: string
   fromEmail?: string
+  attachmentUrl?: string
+  attachmentName?: string
 }) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-
   const pixelUrl = `${baseUrl}/api/track?t=${trackId}`
   const trackedHtml = html + `<img src="${pixelUrl}" width="1" height="1" style="display:none;border:0;outline:none" alt="" />`
 
@@ -42,20 +46,26 @@ export async function sendEmail({
     ? `${fromName} <${process.env.GMAIL_USER}>`
     : `${process.env.GMAIL_USER}`
 
-  console.log('--- Gmail SMTP Debug ---')
-  console.log('To:', to)
-  console.log('From:', fromAddress)
-  console.log('Subject:', subject)
-  console.log('Gmail user exists:', !!process.env.GMAIL_USER)
+  const mailOptions: any = {
+    from: fromAddress,
+    to,
+    subject,
+    html: trackedHtml,
+    replyTo: process.env.GMAIL_USER,
+  }
+
+  // Attach file if provided
+  if (attachmentUrl && attachmentName) {
+    mailOptions.attachments = [
+      {
+        filename: attachmentName,
+        path: attachmentUrl,
+      }
+    ]
+  }
 
   try {
-    const result = await transporter.sendMail({
-      from: fromAddress,
-      to,
-      subject,
-      html: trackedHtml,
-      replyTo: process.env.GMAIL_USER,
-    })
+    const result = await transporter.sendMail(mailOptions)
     console.log('Gmail result:', result.messageId)
     return result
   } catch (err: any) {
