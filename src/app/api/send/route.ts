@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendEmail, replacePlaceholders, randomDelay } from '@/lib/email'
 import { randomUUID } from 'crypto'
+
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const { campaignId, delayMin = 30, delayMax = 90, dailyLimit = 450, fromName, fromEmail, scheduleAt } = body
@@ -38,7 +39,16 @@ export async function POST(req: NextRequest) {
     try {
       const subject = replacePlaceholders(campaign.template.subject, data)
       const html    = replacePlaceholders(campaign.template.body, data).replace(/\n/g, '<br>')
-      await sendEmail({ to: recipient.email, subject, html, trackId, fromName, fromEmail })
+      await sendEmail({
+        to: recipient.email,
+        subject,
+        html,
+        trackId,
+        fromName,
+        fromEmail,
+        attachmentUrl:  campaign.attachmentUrl  || undefined,
+        attachmentName: campaign.attachmentName || undefined,
+      })
       await prisma.recipient.update({
         where: { id: recipient.id },
         data:  { status: 'sent', sentAt: new Date(), trackId }
