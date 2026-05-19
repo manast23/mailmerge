@@ -4,13 +4,11 @@ import { sendEmail, replacePlaceholders, randomDelay } from '@/lib/email'
 import { randomUUID } from 'crypto'
 
 export async function GET(req: NextRequest) {
-  // Security: verify secret token from cron-job.org
   const secret = req.nextUrl.searchParams.get('secret')
   if (secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Find all campaigns scheduled to send now or in the past
   const campaigns = await prisma.campaign.findMany({
     where: {
       status: 'scheduled',
@@ -52,8 +50,15 @@ export async function GET(req: NextRequest) {
 
       try {
         const subject = replacePlaceholders(campaign.template.subject, data)
-        const html = replacePlaceholders(campaign.template.body, data).replace(/\n/g, '<br>')
-        await sendEmail({ to: recipient.email, subject, html, trackId })
+        const html    = replacePlaceholders(campaign.template.body, data).replace(/\n/g, '<br>')
+        await sendEmail({
+          to: recipient.email,
+          subject,
+          html,
+          trackId,
+          attachmentUrl:  campaign.attachmentUrl  || undefined,
+          attachmentName: campaign.attachmentName || undefined,
+        })
         await prisma.recipient.update({
           where: { id: recipient.id },
           data: { status: 'sent', sentAt: new Date(), trackId }
