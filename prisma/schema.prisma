@@ -9,28 +9,28 @@ datasource db {
 }
 
 model Template {
-  id          String     @id @default(cuid())
-  name        String
-  subject     String
-  body        String     @db.Text
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  campaigns   Campaign[]
+  id             String     @id @default(cuid())
+  name           String
+  subject        String
+  body           String     @db.Text
+  attachmentUrl  String?
+  attachmentName String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  campaigns      Campaign[]
 }
 
 model Campaign {
-  id           String      @id @default(cuid())
-  name         String
-  templateId   String
-  template     Template    @relation(fields: [templateId], references: [id])
-  status         String      @default("draft") // draft, sending, done, scheduled
-  scheduledAt    DateTime?
-  sentCount      Int         @default(0)
-  attachmentUrl  String?
-  attachmentName String?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  recipients   Recipient[]
+  id          String      @id @default(cuid())
+  name        String
+  templateId  String
+  template    Template    @relation(fields: [templateId], references: [id])
+  status      String      @default("draft") // draft, sending, done, scheduled
+  scheduledAt DateTime?
+  sentCount   Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  recipients  Recipient[]
 }
 
 model Recipient {
