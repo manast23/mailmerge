@@ -699,26 +699,24 @@ function ComposeTab({ templates, onSaved, showToast }: any) {
           )}
 
           {/* Attachment */}
-          {selected && (
-            <div className={styles.formGroup} style={{marginTop:12}}>
-              <label className={styles.label}>Attachment (CV, Documents)</label>
-              <input ref={attachRef} type="file" style={{display:'none'}} accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" onChange={e => { if(e.target.files?.[0]) uploadAttachment(e.target.files[0]) }} />
-              {attachmentName ? (
-                <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',background:'var(--bg3)',borderRadius:'var(--radius)',border:'1px solid var(--border)'}}>
-                  <span style={{fontSize:16}}>📎</span>
-                  <span style={{fontSize:12,color:'var(--text)',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{attachmentName}</span>
-                  <button onClick={removeAttachment} style={{background:'none',border:'none',color:'var(--red)',cursor:'pointer',fontSize:14,padding:'0 4px'}}>✕</button>
-                </div>
-              ) : (
-                <div>
-                  <button className={styles.btnGhost} style={{width:'100%'}} onClick={() => attachRef.current?.click()} disabled={uploading}>
-                    {uploading ? 'Uploading…' : '📎 Attach File'}
-                  </button>
-                  <div className={styles.hint}>PDF, Word, Excel, or image — sent with every email using this template</div>
-                </div>
-              )}
-            </div>
-          )}
+          <div className={styles.formGroup} style={{marginTop:12}}>
+            <label className={styles.label}>Attachment (CV, Documents)</label>
+            <input ref={attachRef} type="file" style={{display:'none'}} accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" onChange={e => { if(e.target.files?.[0]) uploadAttachment(e.target.files[0]) }} />
+            {attachmentName ? (
+              <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',background:'var(--bg3)',borderRadius:'var(--radius)',border:'1px solid var(--border)'}}>
+                <span style={{fontSize:16}}>📎</span>
+                <span style={{fontSize:12,color:'var(--text)',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{attachmentName}</span>
+                <button onClick={removeAttachment} style={{background:'none',border:'none',color:'var(--red)',cursor:'pointer',fontSize:14,padding:'0 4px'}}>✕</button>
+              </div>
+            ) : (
+              <div>
+                <button className={styles.btnGhost} style={{width:'100%'}} onClick={() => attachRef.current?.click()} disabled={uploading}>
+                  {uploading ? 'Uploading…' : '📎 Attach File'}
+                </button>
+                <div className={styles.hint}>PDF, Word, Excel, or image — sent with every email using this template</div>
+              </div>
+            )}
+          </div>
 
           <div className={styles.formActions} style={{marginTop:16}}>
             {selected && <button className={styles.btnGhost} onClick={newTemplate}>New Template</button>}
