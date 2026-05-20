@@ -43,9 +43,9 @@ export default function App() {
         {/* Logo */}
         <div className={styles.logo}>
           <div className={styles.logoIcon}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <rect x="2" y="4" width="20" height="16" rx="3" fill="white" fillOpacity="0.2" stroke="white" strokeWidth="1.5"/>
-              <path d="M2 8l10 7 10-7" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <rect x="2" y="4" width="20" height="16" rx="3" stroke="white" strokeWidth="1.8"/>
+              <path d="M2 8l10 6 10-6" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
             </svg>
           </div>
           {sidebarExpanded && (
@@ -804,13 +804,14 @@ function DashboardTab({ campaigns, showToast }: any) {
           {/* Stat cards */}
           <div className={styles.statCards}>
             {[
-              { label: 'Total Sent', value: campaign?.sent || 0, color: 'var(--accent)' },
-              { label: 'Opened',     value: opened,               color: 'var(--green)' },
-              { label: 'Not Opened', value: notOpened,            color: 'var(--orange)' },
-              { label: 'Open Rate',  value: openRate + '%',       color: 'var(--purple)' },
+              { label: 'Total Sent', value: campaign?.sent || 0, accent: '#111112' },
+              { label: 'Opened',     value: opened,               accent: '#16a34a' },
+              { label: 'Not Opened', value: notOpened,            accent: '#d97706' },
+              { label: 'Open Rate',  value: openRate + '%',       accent: '#7c3aed' },
             ].map(s => (
               <div key={s.label} className={styles.statCard}>
-                <div className={styles.statNum} style={{color: s.color}}>{s.value}</div>
+                <div className={styles.statAccent} style={{background: s.accent}}></div>
+                <div className={styles.statNum}>{s.value}</div>
                 <div className={styles.statLabel}>{s.label}</div>
               </div>
             ))}

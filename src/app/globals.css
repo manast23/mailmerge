@@ -1,25 +1,25 @@
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-  --bg:        #f0f4f8;
+  --bg:        #f7f8fa;
   --bg2:       #ffffff;
-  --bg3:       #f5f7fa;
-  --border:    #e2e8f0;
-  --border2:   #cbd5e1;
-  --text:      #1a202c;
-  --text2:     #4a5568;
-  --text3:     #94a3b8;
-  --accent:    #3b82f6;
-  --accent2:   #2563eb;
-  --green:     #10b981;
-  --green2:    #059669;
-  --orange:    #f59e0b;
-  --red:       #ef4444;
-  --purple:    #8b5cf6;
-  --radius:    10px;
-  --radius2:   14px;
-  --shadow:    0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
-  --shadow2:   0 4px 12px rgba(0,0,0,0.08);
+  --bg3:       #f2f3f5;
+  --border:    #e8e9ec;
+  --border2:   #d4d5d9;
+  --text:      #111112;
+  --text2:     #555760;
+  --text3:     #a0a3ad;
+  --accent:    #111112;
+  --accent2:   #333440;
+  --green:     #16a34a;
+  --green2:    #15803d;
+  --orange:    #d97706;
+  --red:       #dc2626;
+  --purple:    #7c3aed;
+  --radius:    8px;
+  --radius2:   10px;
+  --shadow:    0 1px 2px rgba(0,0,0,0.05);
+  --shadow2:   0 4px 12px rgba(0,0,0,0.07);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -27,19 +27,19 @@
 html { font-size: 14px; }
 
 body {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Inter', sans-serif;
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3, h4 { font-family: 'Syne', sans-serif; }
+h1, h2, h3, h4 { font-family: 'Inter', sans-serif; letter-spacing: -0.4px; }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--bg3); }
-::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
 
-input, select, textarea { font-family: 'DM Sans', sans-serif; font-size: 13px; }
-button { font-family: 'DM Sans', sans-serif; cursor: pointer; }
+input, select, textarea { font-family: 'Inter', sans-serif; font-size: 13px; }
+button { font-family: 'Inter', sans-serif; cursor: pointer; }
 a { color: inherit; text-decoration: none; }
