@@ -713,6 +713,7 @@ function ComposeTab({ templates, onSaved, showToast }: any) {
         </div>
 
         {/* Editor */}
+        {selected ? (
         <div className={styles.card} style={{flex:1}}>
           <div className={styles.formGroup}>
             <label className={styles.label}>Template Name</label>
@@ -786,12 +787,20 @@ function ComposeTab({ templates, onSaved, showToast }: any) {
           </div>
 
           <div className={styles.formActions} style={{marginTop:16}}>
-            {selected && <button className={styles.btnGhost} onClick={newTemplate}>New Template</button>}
+            <button className={styles.btnGhost} onClick={newTemplate}>New Template</button>
             <button className={styles.btnPrimary} onClick={saveTemplate} disabled={saving}>
-              {saving ? 'Saving…' : selected ? 'Update Template' : 'Save Template'}
+              {saving ? 'Saving…' : 'Save Template'}
             </button>
           </div>
         </div>
+        ) : (
+          <div className={styles.card} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:320}}>
+            <div className={styles.emptyIcon}>✦</div>
+            <div className={styles.emptyTitle}>No template selected</div>
+            <div className={styles.emptyText} style={{marginBottom:20}}>Pick one from the list or create a new one</div>
+            <button className={styles.btnPrimary} onClick={newTemplate}>+ New Template</button>
+          </div>
+        )}
       </div>
     </div>
   )
