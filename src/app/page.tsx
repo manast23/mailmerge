@@ -16,6 +16,7 @@ export default function App() {
   const [toast, setToast]           = useState<{msg: string, type: 'success'|'error'|'info'} | null>(null)
   const [sidebarPinned, setSidebarPinned] = useState(false)
   const [sidebarHovered, setSidebarHovered] = useState(false)
+  const [showWelcome, setShowWelcome] = useState(true)
   const sidebarExpanded = sidebarPinned || sidebarHovered
 
   useEffect(() => { loadTemplates(); loadCampaigns() }, [])
@@ -34,6 +35,53 @@ export default function App() {
 
   return (
     <div className={styles.app}>
+      {/* Welcome Screen */}
+      {showWelcome && (
+        <div className={styles.welcome}>
+          <div className={styles.welcomeCard}>
+            {/* Logo */}
+            <div className={styles.welcomeLogo}>
+              <div className={styles.welcomeLogoIcon}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <rect x="2" y="4" width="20" height="16" rx="3" stroke="white" strokeWidth="1.8"/>
+                  <path d="M2 8l10 6 10-6" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <div className={styles.welcomeLogoText}>Mail Merge</div>
+              <div className={styles.welcomeLogoPro}>PRO</div>
+            </div>
+
+            {/* Headline */}
+            <h1 className={styles.welcomeTitle}>Send smarter.<br/>Track what matters.</h1>
+            <p className={styles.welcomeSub}>Personalised email campaigns with open tracking, scheduled sending, and CSV exports — all in one place.</p>
+
+            {/* Features */}
+            <div className={styles.welcomeFeatures}>
+              {[
+                ['📄', 'Templates with placeholders'],
+                ['📊', 'Open tracking & analytics'],
+                ['📎', 'File attachments per template'],
+                ['⏰', 'Scheduled sending'],
+              ].map(([icon, label]) => (
+                <div key={label as string} className={styles.welcomeFeature}>
+                  <span className={styles.welcomeFeatureIcon}>{icon}</span>
+                  <span>{label}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* CTA */}
+            <button className={styles.welcomeBtn} onClick={() => setShowWelcome(false)}>
+              Get Started
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </button>
+            <p className={styles.welcomeNote}>No login required</p>
+          </div>
+        </div>
+      )}
+
+      {/* Main App */}
+      {!showWelcome && (<>
       {/* Sidebar */}
       <aside
         className={`${styles.sidebar} ${sidebarExpanded ? styles.sidebarExpanded : styles.sidebarCollapsed}`}
@@ -133,6 +181,7 @@ export default function App() {
           {toast.type === 'success' ? '✓' : toast.type === 'error' ? '✗' : 'i'} {toast.msg}
         </div>
       )}
+      </>)}
     </div>
   )
 }

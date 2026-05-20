@@ -752,3 +752,124 @@ textarea.input { resize: vertical; min-height: 80px; line-height: 1.5; }
   50%  { opacity: 1; }
   100% { opacity: 0.3; }
 }
+
+/* ─── Welcome Screen ─────────────────── */
+.welcome {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.welcomeCard {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 48px 44px;
+  width: 100%;
+  max-width: 440px;
+  text-align: center;
+}
+
+.welcomeLogo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 32px;
+}
+
+.welcomeLogoIcon {
+  width: 40px; height: 40px;
+  background: var(--text);
+  border-radius: 11px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.welcomeLogoText {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.3px;
+}
+
+.welcomeLogoPro {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--text3);
+  background: var(--bg3);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+.welcomeTitle {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.8px;
+  color: var(--text);
+  line-height: 1.2;
+  margin-bottom: 12px;
+}
+
+.welcomeSub {
+  font-size: 14px;
+  color: var(--text3);
+  line-height: 1.6;
+  margin-bottom: 32px;
+  font-weight: 400;
+}
+
+.welcomeFeatures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 32px;
+  text-align: left;
+}
+
+.welcomeFeature {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg3);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text2);
+  font-weight: 500;
+}
+
+.welcomeFeatureIcon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.welcomeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--text);
+  color: white;
+  border: none;
+  border-radius: var(--radius);
+  padding: 12px 28px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.12s;
+  width: 100%;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+.welcomeBtn:hover { background: var(--accent2); }
+
+.welcomeNote {
+  font-size: 11px;
+  color: var(--text3);
+}
