@@ -179,8 +179,8 @@
   flex: 1;
   overflow: hidden;
   min-width: 0;
-  margin-left: 60px;
-  width: calc(100vw - 60px);
+  margin-left: 220px;
+  width: calc(100vw - 220px);
 }
 
 .tabContent {
