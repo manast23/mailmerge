@@ -192,7 +192,6 @@ function CampaignsTab({ campaigns, templates, onRefresh, showToast }: any) {
   const [newName, setNewName]           = useState('')
   const [newTemplateId, setNewTemplate] = useState('')
   const [selected, setSelected]         = useState<Campaign | null>(null)
-  const [sending, setSending]           = useState(false)
 
   async function createCampaign() {
     if (!newName || !newTemplateId) return showToast('Enter name and select template', 'error')
@@ -231,21 +230,58 @@ function CampaignsTab({ campaigns, templates, onRefresh, showToast }: any) {
           <h1 className={styles.pageTitle}>Campaigns</h1>
           <p className={styles.pageSubtitle}>Manage and send your mail merge campaigns</p>
         </div>
-        <div style={{display:'flex',gap:8}}>
-          <button className={styles.refreshBtn} onClick={() => { onRefresh(); showToast('Refreshed!', 'info') }}>
-            <span className={styles.refreshIcon}>↻</span> Refresh
-          </button>
-          <button className={styles.btnPrimary} onClick={() => setCreating(true)}>+ New Campaign</button>
-        </div>
+        <button className={styles.refreshBtn} onClick={() => { onRefresh(); showToast('Refreshed!', 'info') }}>
+          <span className={styles.refreshIcon}>↻</span> Refresh
+        </button>
       </div>
 
-      {creating && (
-        <div className={styles.card} style={{marginBottom: 20}}>
-          <div className={styles.cardTitle}>New Campaign</div>
-          <div className={styles.formRow}>
+      <div className={styles.composeGrid}>
+        {/* Campaign list */}
+        <div className={styles.templateList}>
+          {/* New Campaign button at top of list */}
+          <div
+            className={`${styles.templateItem} ${creating && !selected ? styles.templateItemActive : ''}`}
+            onClick={() => { setCreating(true); setSelected(null) }}
+            style={{display:'flex', alignItems:'center', gap:8, color:'var(--text2)', fontWeight:500, fontSize:13}}
+          >
+            <span style={{fontSize:16, lineHeight:1}}>+</span>
+            <span>New Campaign</span>
+          </div>
+
+          {!campaigns.length && (
+            <div className={styles.empty} style={{padding:'30px 20px'}}>
+              <div className={styles.emptyIcon} style={{fontSize:24}}>◈</div>
+              <div className={styles.emptyText}>No campaigns yet</div>
+            </div>
+          )}
+          {campaigns.map((c: Campaign) => (
+            <div
+              key={c.id}
+              className={`${styles.templateItem} ${selected?.id === c.id ? styles.templateItemActive : ''}`}
+              onClick={() => { setSelected(c); setCreating(false) }}
+            >
+              <div className={styles.templateItemName}>{c.name}</div>
+              <div className={styles.templateItemSubject} style={{display:'flex', alignItems:'center', gap:6}}>
+                <span>{c.template?.name}</span>
+                <span className={styles.badge} style={{background: statusColor[c.status] + '22', color: statusColor[c.status], marginLeft:'auto'}}>
+                  {c.status}
+                </span>
+              </div>
+              <div className={styles.templateItemDate}>
+                <span style={{marginRight:8}}>{c.sent} sent · {c.opened} opened</span>
+                {new Date(c.createdAt).toLocaleDateString('en-PK', {day:'2-digit', month:'short'})}
+              </div>
+              <button className={styles.deleteBtn} onClick={e => { e.stopPropagation(); deleteCampaign(c.id) }}>✕</button>
+            </div>
+          ))}
+        </div>
+
+        {/* Right pane */}
+        {creating ? (
+          <div className={styles.card} style={{flex:1}}>
             <div className={styles.formGroup}>
               <label className={styles.label}>Campaign Name</label>
-              <input className={styles.input} value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. Prof Outreach Jan 2025" />
+              <input className={styles.input} value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. Prof Outreach Jan 2025" autoFocus />
             </div>
             <div className={styles.formGroup}>
               <label className={styles.label}>Template</label>
@@ -254,42 +290,20 @@ function CampaignsTab({ campaigns, templates, onRefresh, showToast }: any) {
                 {templates.map((t: Template) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </div>
-          </div>
-          <div className={styles.formActions}>
-            <button className={styles.btnGhost} onClick={() => setCreating(false)}>Cancel</button>
-            <button className={styles.btnPrimary} onClick={createCampaign}>Create</button>
-          </div>
-        </div>
-      )}
-
-      {!campaigns.length ? (
-        <div className={styles.empty}>
-          <div className={styles.emptyIcon}>◈</div>
-          <div className={styles.emptyTitle}>No campaigns yet</div>
-          <div className={styles.emptyText}>Create your first campaign to get started</div>
-        </div>
-      ) : (
-        <div className={styles.campaignGrid}>
-          {campaigns.map((c: Campaign) => (
-            <div key={c.id} className={styles.campaignCard} onClick={() => setSelected(c)}>
-              <div className={styles.campaignCardHeader}>
-                <div className={styles.campaignName}>{c.name}</div>
-                <span className={styles.badge} style={{background: statusColor[c.status] + '22', color: statusColor[c.status]}}>
-                  {c.status}
-                </span>
-              </div>
-              <div className={styles.campaignTemplate}>{c.template?.name}</div>
-              <div className={styles.campaignStats}>
-                <div className={styles.cStat}><span>{c.total}</span> recipients</div>
-                <div className={styles.cStat}><span style={{color:'var(--accent)'}}>{c.sent}</span> sent</div>
-                <div className={styles.cStat}><span style={{color:'var(--green)'}}>{c.opened}</span> opened</div>
-              </div>
-              <div className={styles.campaignDate}>{new Date(c.createdAt).toLocaleDateString('en-PK', {day:'2-digit',month:'short',year:'numeric'})}</div>
-              <button className={styles.deleteBtn} onClick={e => { e.stopPropagation(); deleteCampaign(c.id) }}>✕</button>
+            <div className={styles.formActions} style={{marginTop:16}}>
+              <button className={styles.btnGhost} onClick={() => setCreating(false)}>Cancel</button>
+              <button className={styles.btnPrimary} onClick={createCampaign}>Create Campaign</button>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ) : (
+          <div className={styles.card} style={{flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:320}}>
+            <div className={styles.emptyIcon}>◈</div>
+            <div className={styles.emptyTitle}>No campaign selected</div>
+            <div className={styles.emptyText} style={{marginBottom:20}}>Pick one from the list or create a new one</div>
+            <button className={styles.btnPrimary} onClick={() => setCreating(true)}>+ New Campaign</button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
