@@ -600,39 +600,33 @@ function ComposeTab({ templates, onSaved, showToast }: any) {
     },
   })
 
-  function newTemplate() {
-    setSelected(null); setName(''); setSubject(''); setBody(''); setAttachmentName('')
+  async function newTemplate() {
+    // Create immediately in DB so sidebar shows tile and attachment works right away
+    const r = await fetch('/api/templates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Untitled', subject: '', body: '' })
+    })
+    const created = await r.json()
+    setSelected(created)
+    setName(''); setSubject(''); setBody(''); setAttachmentName('')
     editor?.commands.setContent('')
+    onSaved() // refresh sidebar list
   }
 
   function editTemplate(t: Template) {
-    setSelected(t); setName(t.name); setSubject(t.subject); setBody(t.body)
+    setSelected(t); setName(t.name === 'Untitled' ? '' : t.name); setSubject(t.subject); setBody(t.body)
     setAttachmentName((t as any).attachmentName || '')
     editor?.commands.setContent(t.body)
   }
 
   async function uploadAttachment(file: File) {
-    let templateId = selected?.id
-    // Auto-save first if this is a new unsaved template
-    if (!templateId) {
-      if (!name || !subject || !body) return showToast('Fill in name, subject and body before attaching', 'error')
-      setSaving(true)
-      const r = await fetch('/api/templates', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ name, subject, body })
-      })
-      setSaving(false)
-      if (!r.ok) return showToast('Failed to save template', 'error')
-      const saved = await r.json()
-      setSelected(saved)
-      templateId = saved.id
-      onSaved()
-    }
+    // Template always exists now — created on "New Template" click
+    if (!selected?.id) return showToast('Something went wrong, please refresh', 'error')
     setUploading(true)
     const form = new FormData()
     form.append('file', file)
-    form.append('templateId', templateId)
+    form.append('templateId', selected.id)
     const r = await fetch('/api/upload', { method: 'POST', body: form })
     const d = await r.json()
     setUploading(false)
@@ -659,18 +653,20 @@ function ComposeTab({ templates, onSaved, showToast }: any) {
   }
 
   async function saveTemplate() {
+    if (!selected?.id) return showToast('No template selected', 'error')
     if (!name || !subject || !body) return showToast('Fill in name, subject and body', 'error')
     setSaving(true)
     const r = await fetch('/api/templates', {
-      method: selected ? 'PUT' : 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ id: selected?.id, name, subject, body })
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: selected.id, name, subject, body })
     })
     setSaving(false)
     if (!r.ok) return showToast('Failed to save', 'error')
-    const saved = await r.json()
-    if (!selected) setSelected(saved)  // set ID so attachment works immediately after
+    const updated = await r.json()
+    setSelected(updated)
     onSaved()
+    showToast('Template saved!')
   }
 
   async function deleteTemplate(id: string) {
@@ -704,8 +700,12 @@ function ComposeTab({ templates, onSaved, showToast }: any) {
           )}
           {templates.map((t: Template) => (
             <div key={t.id} className={`${styles.templateItem} ${selected?.id === t.id ? styles.templateItemActive : ''}`} onClick={() => editTemplate(t)}>
-              <div className={styles.templateItemName}>{t.name}</div>
-              <div className={styles.templateItemSubject}>{t.subject}</div>
+              <div className={styles.templateItemName}>
+                {selected?.id === t.id ? (name || 'Untitled') : (t.name || 'Untitled')}
+              </div>
+              <div className={styles.templateItemSubject}>
+                {selected?.id === t.id ? (subject || 'No subject') : (t.subject || 'No subject')}
+              </div>
               <div className={styles.templateItemDate}>{new Date(t.updatedAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})}</div>
               <button className={styles.deleteBtn} onClick={e => { e.stopPropagation(); deleteTemplate(t.id) }}>✕</button>
             </div>

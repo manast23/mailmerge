@@ -11,11 +11,12 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const { name, subject, body: templateBody } = body
-  if (!name || !subject || !templateBody) {
-    return NextResponse.json({ error: 'name, subject and body are required' }, { status: 400 })
-  }
   const template = await prisma.template.create({
-    data: { name, subject, body: templateBody }
+    data: {
+      name:    name    || 'Untitled',
+      subject: subject || '',
+      body:    templateBody || ''
+    }
   })
   return NextResponse.json(template)
 }
