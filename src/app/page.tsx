@@ -166,7 +166,7 @@ export default function App() {
         {tab === 'compose' && (
           <ComposeTab
             templates={templates}
-            onSaved={() => { loadTemplates(); showToast('Template saved!') }}
+            onSaved={() => { loadTemplates() }}
             showToast={showToast}
           />
         )}
