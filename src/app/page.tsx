@@ -612,11 +612,27 @@ function ComposeTab({ templates, onSaved, showToast }: any) {
   }
 
   async function uploadAttachment(file: File) {
-    if (!selected) return showToast('Save the template first', 'error')
+    let templateId = selected?.id
+    // Auto-save first if this is a new unsaved template
+    if (!templateId) {
+      if (!name || !subject || !body) return showToast('Fill in name, subject and body before attaching', 'error')
+      setSaving(true)
+      const r = await fetch('/api/templates', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ name, subject, body })
+      })
+      setSaving(false)
+      if (!r.ok) return showToast('Failed to save template', 'error')
+      const saved = await r.json()
+      setSelected(saved)
+      templateId = saved.id
+      onSaved()
+    }
     setUploading(true)
     const form = new FormData()
     form.append('file', file)
-    form.append('templateId', selected.id)
+    form.append('templateId', templateId)
     const r = await fetch('/api/upload', { method: 'POST', body: form })
     const d = await r.json()
     setUploading(false)
@@ -652,6 +668,8 @@ function ComposeTab({ templates, onSaved, showToast }: any) {
     })
     setSaving(false)
     if (!r.ok) return showToast('Failed to save', 'error')
+    const saved = await r.json()
+    if (!selected) setSelected(saved)  // set ID so attachment works immediately after
     onSaved()
   }
 
