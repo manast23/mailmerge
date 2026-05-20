@@ -5,7 +5,6 @@
 
 /* ─── Sidebar ─────────────────────────── */
 .sidebar {
-  width: 220px;
   flex-shrink: 0;
   background: var(--bg2);
   border-right: 1px solid var(--border);
@@ -16,19 +15,32 @@
   top: 0;
   height: 100vh;
   box-shadow: var(--shadow);
+  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  z-index: 100;
 }
 
+.sidebarCollapsed {
+  width: 60px;
+}
+
+.sidebarExpanded {
+  width: 220px;
+}
+
+/* ─── Logo ────────────────────────────── */
 .logo {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 22px 20px 20px;
+  padding: 16px 12px;
   border-bottom: 1px solid var(--border);
   margin-bottom: 12px;
+  min-height: 64px;
+  overflow: hidden;
 }
 
 .logoIcon {
-  font-size: 20px;
   width: 36px; height: 36px;
   background: linear-gradient(135deg, var(--accent), var(--purple));
   border-radius: 10px;
@@ -37,12 +49,19 @@
   color: white;
 }
 
+.logoText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
 .logoTitle {
   font-family: 'Syne', sans-serif;
   font-size: 14px;
   font-weight: 700;
   color: var(--text);
   letter-spacing: -0.3px;
+  white-space: nowrap;
 }
 
 .logoPro {
@@ -54,14 +73,35 @@
   padding: 1px 5px;
   border-radius: 3px;
   display: inline-block;
-  margin-top: 1px;
+  margin-top: 2px;
+  white-space: nowrap;
 }
 
+/* ─── Pin Button ─────────────────────── */
+.pinBtn {
+  flex-shrink: 0;
+  width: 26px; height: 26px;
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: 7px;
+  color: var(--text3);
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+  margin-left: auto;
+}
+.pinBtn:hover { background: var(--bg3); color: var(--accent); border-color: var(--accent); }
+.pinBtnActive {
+  background: #dbeafe;
+  color: var(--accent2);
+  border-color: var(--accent);
+}
+
+/* ─── Nav ─────────────────────────────── */
 .nav {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 0 10px;
+  padding: 0 8px;
   flex: 1;
 }
 
@@ -69,7 +109,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 12px;
+  padding: 9px 10px;
   border: none;
   background: none;
   color: var(--text2);
@@ -79,6 +119,8 @@
   transition: all 0.15s;
   text-align: left;
   width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .navItem:hover { background: var(--bg3); color: var(--text); }
@@ -89,16 +131,27 @@
 }
 
 .navIcon {
-  font-size: 15px;
-  width: 18px;
-  text-align: center;
+  flex-shrink: 0;
+  width: 18px; height: 18px;
+  display: flex; align-items: center; justify-content: center;
 }
 
+.navLabel {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* ─── Sidebar Stats ──────────────────── */
 .sidebarStats {
-  padding: 12px 14px 0;
+  padding: 12px 10px 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.sidebarStatsCollapsed {
+  padding: 12px 10px 0;
+  align-items: center;
 }
 
 .statPill {
@@ -111,6 +164,8 @@
   background: var(--bg3);
   border-radius: 6px;
   border: 1px solid var(--border);
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .statDot {

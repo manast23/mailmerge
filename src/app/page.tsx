@@ -14,6 +14,9 @@ export default function App() {
   const [templates, setTemplates]   = useState<Template[]>([])
   const [campaigns, setCampaigns]   = useState<Campaign[]>([])
   const [toast, setToast]           = useState<{msg: string, type: 'success'|'error'|'info'} | null>(null)
+  const [sidebarPinned, setSidebarPinned] = useState(false)
+  const [sidebarHovered, setSidebarHovered] = useState(false)
+  const sidebarExpanded = sidebarPinned || sidebarHovered
 
   useEffect(() => { loadTemplates(); loadCampaigns() }, [])
 
@@ -32,40 +35,72 @@ export default function App() {
   return (
     <div className={styles.app}>
       {/* Sidebar */}
-      <aside className={styles.sidebar}>
+      <aside
+        className={`${styles.sidebar} ${sidebarExpanded ? styles.sidebarExpanded : styles.sidebarCollapsed}`}
+        onMouseEnter={() => setSidebarHovered(true)}
+        onMouseLeave={() => setSidebarHovered(false)}
+      >
+        {/* Logo */}
         <div className={styles.logo}>
-          <span className={styles.logoIcon}>✉</span>
-          <div>
-            <div className={styles.logoTitle}>Mail Merge</div>
-            <div className={styles.logoPro}>PRO</div>
+          <div className={styles.logoIcon}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <rect x="2" y="4" width="20" height="16" rx="3" fill="white" fillOpacity="0.2" stroke="white" strokeWidth="1.5"/>
+              <path d="M2 8l10 7 10-7" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
           </div>
+          {sidebarExpanded && (
+            <div className={styles.logoText}>
+              <div className={styles.logoTitle}>Mail Merge</div>
+              <div className={styles.logoPro}>PRO</div>
+            </div>
+          )}
+          {sidebarExpanded && (
+            <button
+              className={`${styles.pinBtn} ${sidebarPinned ? styles.pinBtnActive : ''}`}
+              onClick={() => setSidebarPinned(p => !p)}
+              title={sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar'}
+            >
+              {sidebarPinned ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5v6l1 1 1-1v-6h5v-2l-2-2z"/></svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v6m0 4v10M8 8h8M6 12h12"/></svg>
+              )}
+            </button>
+          )}
         </div>
 
         <nav className={styles.nav}>
           {([
-            ['campaigns', '◈', 'Campaigns'],
-            ['compose',   '✦', 'Compose'],
-            ['dashboard', '◎', 'Dashboard'],
-          ] as [Tab, string, string][]).map(([key, icon, label]) => (
+            ['campaigns', (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+            ), 'Campaigns'],
+            ['compose', (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            ), 'Compose'],
+            ['dashboard', (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            ), 'Dashboard'],
+          ] as [Tab, React.ReactNode, string][]).map(([key, icon, label]) => (
             <button
               key={key}
               className={`${styles.navItem} ${tab === key ? styles.navActive : ''}`}
               onClick={() => setTab(key)}
+              title={!sidebarExpanded ? label : undefined}
             >
               <span className={styles.navIcon}>{icon}</span>
-              <span>{label}</span>
+              {sidebarExpanded && <span className={styles.navLabel}>{label}</span>}
             </button>
           ))}
         </nav>
 
-        <div className={styles.sidebarStats}>
+        <div className={`${styles.sidebarStats} ${sidebarExpanded ? '' : styles.sidebarStatsCollapsed}`}>
           <div className={styles.statPill}>
             <span className={styles.statDot} style={{background:'var(--accent)'}}></span>
-            {campaigns.length} campaigns
+            {sidebarExpanded && <span>{campaigns.length} campaigns</span>}
           </div>
           <div className={styles.statPill}>
             <span className={styles.statDot} style={{background:'var(--green)'}}></span>
-            {templates.length} templates
+            {sidebarExpanded && <span>{templates.length} templates</span>}
           </div>
         </div>
       </aside>
