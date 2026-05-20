@@ -601,7 +601,6 @@ function ComposeTab({ templates, onSaved, showToast }: any) {
   })
 
   async function newTemplate() {
-    // Create immediately in DB so sidebar shows tile and attachment works right away
     const r = await fetch('/api/templates', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -611,7 +610,7 @@ function ComposeTab({ templates, onSaved, showToast }: any) {
     setSelected(created)
     setName(''); setSubject(''); setBody(''); setAttachmentName('')
     editor?.commands.setContent('')
-    onSaved() // refresh sidebar list
+    onSaved()
   }
 
   function editTemplate(t: Template) {
@@ -663,10 +662,12 @@ function ComposeTab({ templates, onSaved, showToast }: any) {
     })
     setSaving(false)
     if (!r.ok) return showToast('Failed to save', 'error')
-    const updated = await r.json()
-    setSelected(updated)
     onSaved()
     showToast('Template saved!')
+    // Reset to empty state so user sees the "new template" box again
+    setSelected(null)
+    setName(''); setSubject(''); setBody(''); setAttachmentName('')
+    editor?.commands.setContent('')
   }
 
   async function deleteTemplate(id: string) {
@@ -686,7 +687,6 @@ function ComposeTab({ templates, onSaved, showToast }: any) {
           <h1 className={styles.pageTitle}>Templates</h1>
           <p className={styles.pageSubtitle}>Write reusable email templates with {'{{'} placeholders {'}'}</p>
         </div>
-        <button className={styles.btnPrimary} onClick={newTemplate}>+ New Template</button>
       </div>
 
       <div className={styles.composeGrid}>
