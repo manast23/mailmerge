@@ -617,7 +617,7 @@ function ComposeTab({ templates, onSaved, showToast }: any) {
     setSelected(created)
     setName(''); setSubject(''); setBody(''); setAttachmentName('')
     editor?.commands.setContent('')
-    onSaved()
+    onSaved() // refresh list so tile appears
   }
 
   function editTemplate(t: Template) {
@@ -677,10 +677,25 @@ function ComposeTab({ templates, onSaved, showToast }: any) {
     editor?.commands.setContent('')
   }
 
+  async function cancelTemplate() {
+    // Delete the unsaved Untitled template from DB and reset editor
+    if (selected?.id) {
+      await fetch(`/api/templates?id=${selected.id}`, { method: 'DELETE' })
+      onSaved()
+    }
+    setSelected(null)
+    setName(''); setSubject(''); setBody(''); setAttachmentName('')
+    editor?.commands.setContent('')
+  }
+
   async function deleteTemplate(id: string) {
     if (!confirm('Delete this template?')) return
     await fetch(`/api/templates?id=${id}`, { method: 'DELETE' })
-    if (selected?.id === id) newTemplate()
+    if (selected?.id === id) {
+      setSelected(null)
+      setName(''); setSubject(''); setBody(''); setAttachmentName('')
+      editor?.commands.setContent('')
+    }
     onSaved()
     showToast('Template deleted')
   }
@@ -794,7 +809,7 @@ function ComposeTab({ templates, onSaved, showToast }: any) {
           </div>
 
           <div className={styles.formActions} style={{marginTop:16}}>
-            <button className={styles.btnGhost} onClick={newTemplate}>New Template</button>
+            <button className={styles.btnGhost} onClick={cancelTemplate}>Cancel</button>
             <button className={styles.btnPrimary} onClick={saveTemplate} disabled={saving}>
               {saving ? 'Saving…' : 'Save Template'}
             </button>
