@@ -873,3 +873,17 @@ textarea.input { resize: vertical; min-height: 80px; line-height: 1.5; }
   font-size: 11px;
   color: var(--text3);
 }
+
+/* ─── Form Actions ───────────────────── */
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.hint {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 5px;
+}
