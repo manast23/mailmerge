@@ -238,16 +238,6 @@ function CampaignsTab({ campaigns, templates, onRefresh, showToast }: any) {
       <div className={styles.composeGrid}>
         {/* Campaign list */}
         <div className={styles.templateList}>
-          {/* New Campaign button at top of list */}
-          <div
-            className={`${styles.templateItem} ${creating && !selected ? styles.templateItemActive : ''}`}
-            onClick={() => { setCreating(true); setSelected(null) }}
-            style={{display:'flex', alignItems:'center', gap:8, color:'var(--text2)', fontWeight:500, fontSize:13}}
-          >
-            <span style={{fontSize:16, lineHeight:1}}>+</span>
-            <span>New Campaign</span>
-          </div>
-
           {!campaigns.length && (
             <div className={styles.empty} style={{padding:'30px 20px'}}>
               <div className={styles.emptyIcon} style={{fontSize:24}}>◈</div>
