@@ -254,10 +254,12 @@ function CampaignsTab({ campaigns, templates, onRefresh, showToast }: any) {
               <div className={styles.emptyText}>No campaigns yet</div>
             </div>
           )}
-          {campaigns.map((c: Campaign) => (
+          {campaigns.map((c: Campaign) => {
+            const isActive = (selected as Campaign | null)?.id === c.id
+            return (
             <div
               key={c.id}
-              className={`${styles.templateItem} ${selected?.id === c.id ? styles.templateItemActive : ''}`}
+              className={`${styles.templateItem} ${isActive ? styles.templateItemActive : ''}`}
               onClick={() => { setSelected(c); setCreating(false) }}
             >
               <div className={styles.templateItemName}>{c.name}</div>
@@ -273,7 +275,8 @@ function CampaignsTab({ campaigns, templates, onRefresh, showToast }: any) {
               </div>
               <button className={styles.deleteBtn} onClick={e => { e.stopPropagation(); deleteCampaign(c.id) }}>✕</button>
             </div>
-          ))}
+            )
+          })}
         </div>
 
         {/* Right pane */}
