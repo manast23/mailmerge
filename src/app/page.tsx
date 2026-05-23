@@ -662,6 +662,46 @@ function ComposeTab({ templates, onSaved, showToast }: any) {
       .then(() => onSaved())
   }
 
+  function detectPlaceholders() {
+    const all = subject + ' ' + body
+    const matches = all.match(/\{\{([^}]+)\}\}/g) || []
+    return [...new Set(matches.map(m => m.replace(/\{\{|\}\}/g, '').trim()))]
+  }
+
+  function editTemplate(t: Template) {
+    setSelected(t)
+    setName(t.name === 'Untitled' ? '' : t.name)
+    setSubject(t.subject)
+    setBody(t.body)
+    setAttachmentName((t as any).attachmentName || '')
+    editor?.commands.setContent(t.body)
+  }
+
+  async function uploadAttachment(file: File) {
+    if (!selected?.id || selected.id.startsWith('temp_')) return showToast('Please wait a moment then try again', 'error')
+    setUploading(true)
+    const form = new FormData()
+    form.append('file', file)
+    form.append('templateId', selected.id)
+    const r = await fetch('/api/upload', { method: 'POST', body: form })
+    const d = await r.json()
+    setUploading(false)
+    if (d.error) return showToast(d.error, 'error')
+    setAttachmentName(d.attachmentName)
+    showToast(`Attached: ${d.attachmentName}`)
+  }
+
+  async function removeAttachment() {
+    if (!selected) return
+    await fetch('/api/upload', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ templateId: selected.id })
+    })
+    setAttachmentName('')
+    showToast('Attachment removed')
+  }
+
   const placeholders = detectPlaceholders()
 
   return (
