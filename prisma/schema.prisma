@@ -21,16 +21,18 @@ model Template {
 }
 
 model Campaign {
-  id          String      @id @default(cuid())
-  name        String
-  templateId  String
-  template    Template    @relation(fields: [templateId], references: [id])
-  status      String      @default("draft") // draft, sending, done, scheduled
-  scheduledAt DateTime?
-  sentCount   Int         @default(0)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  recipients  Recipient[]
+  id               String      @id @default(cuid())
+  name             String
+  templateId       String
+  template         Template    @relation(fields: [templateId], references: [id])
+  status           String      @default("draft") // draft, sending, done, scheduled
+  scheduledAt      DateTime?
+  sentCount        Int         @default(0)
+  parentCampaignId String?
+  followUpType     String?     // 'opened' | 'not_opened'
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  recipients       Recipient[]
 }
 
 model Recipient {
@@ -43,6 +45,7 @@ model Recipient {
   sentAt     DateTime?
   openedAt   DateTime?
   trackId    String?   @unique
+  messageId  String?   // Gmail Message-ID for threading
   error      String?
   createdAt  DateTime  @default(now())
 }

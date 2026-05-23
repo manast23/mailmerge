@@ -28,6 +28,8 @@ export async function sendEmail({
   fromEmail,
   attachmentUrl,
   attachmentName,
+  inReplyTo,
+  references,
 }: {
   to: string
   subject: string
@@ -37,6 +39,8 @@ export async function sendEmail({
   fromEmail?: string
   attachmentUrl?: string
   attachmentName?: string
+  inReplyTo?: string
+  references?: string
 }) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
   const pixelUrl = `${baseUrl}/api/track?t=${trackId}`
@@ -54,6 +58,9 @@ export async function sendEmail({
     replyTo: process.env.GMAIL_USER,
   }
 
+  if (inReplyTo) mailOptions.inReplyTo = inReplyTo
+  if (references) mailOptions.references = references
+
   // Attach file if provided
   if (attachmentUrl && attachmentName) {
     mailOptions.attachments = [
@@ -67,7 +74,7 @@ export async function sendEmail({
   try {
     const result = await transporter.sendMail(mailOptions)
     console.log('Gmail result:', result.messageId)
-    return result
+    return result  // result.messageId is available to caller
   } catch (err: any) {
     console.error('Gmail SMTP error:', err.message)
     throw err

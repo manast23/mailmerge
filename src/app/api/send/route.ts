@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     try {
       const subject = replacePlaceholders(campaign.template.subject, data)
       const html    = replacePlaceholders(campaign.template.body, data).replace(/\n/g, '<br>')
-      await sendEmail({
+      const result = await sendEmail({
         to: recipient.email,
         subject,
         html,
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
       })
       await prisma.recipient.update({
         where: { id: recipient.id },
-        data:  { status: 'sent', sentAt: new Date(), trackId }
+        data:  { status: 'sent', sentAt: new Date(), trackId, messageId: result.messageId || null }
       })
       sentCount++
     } catch (e: any) {
