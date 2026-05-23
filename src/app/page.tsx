@@ -317,8 +317,9 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
   const [useSchedule, setUseSchedule]       = useState(false)
   const [columns, setColumns]               = useState<string[]>([])
   const [templates, setTemplates]           = useState<Template[]>([])
-  const [showFollowUp, setShowFollowUp]     = useState<'opened'|'not_opened'|null>(null)
+  const [showFollowUp, setShowFollowUp]       = useState<'opened'|'not_opened'|null>(null)
   const [followUpTemplateId, setFollowUpTemplateId] = useState('')
+  const [followUpLevel, setFollowUpLevel]     = useState(0)
   const [sendingFollowUp, setSendingFollowUp] = useState(false)
   const fileRef  = useRef<HTMLInputElement>(null)
 
@@ -430,6 +431,7 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
         campaignId: campaign.id,
         templateId: followUpTemplateId,
         followUpType: showFollowUp,
+        followUpLevel,
         delayMin, delayMax, fromName, fromEmail
       })
     })
@@ -439,12 +441,27 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
     showToast(`Follow-up sent to ${d.sentCount} recipients!`)
     setShowFollowUp(null)
     setFollowUpTemplateId('')
+    loadRecipients()
   }
 
-  const pending = recipients.filter(r => r.status === 'pending').length
-  const sent    = recipients.filter(r => r.status === 'sent').length
-  const opened  = recipients.filter(r => r.openedAt).length
-  const notOpened = recipients.filter(r => r.status === 'sent' && !r.openedAt).length
+  const pending    = recipients.filter(r => r.status === 'pending').length
+  const sent       = recipients.filter(r => r.status === 'sent').length
+  const opened     = recipients.filter(r => r.openedAt).length
+  const notOpened  = recipients.filter(r => r.status === 'sent' && !r.openedAt).length
+
+  // Group by followUpCount for each category
+  function getFollowUpGroups(filterFn: (r: Recipient) => boolean) {
+    const filtered = recipients.filter(r => r.status === 'sent' && filterFn(r))
+    const groups: Record<number, number> = {}
+    filtered.forEach(r => {
+      const count = (r as any).followUpCount ?? 0
+      groups[count] = (groups[count] || 0) + 1
+    })
+    return Object.entries(groups).map(([level, count]) => ({ level: Number(level), count })).sort((a, b) => a.level - b.level)
+  }
+
+  const openedGroups    = getFollowUpGroups(r => !!r.openedAt)
+  const notOpenedGroups = getFollowUpGroups(r => !r.openedAt)
 
   return (
     <div className={styles.tabContent}>
@@ -532,6 +549,7 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
                       {columns.slice(0,3).filter(c => !c.toLowerCase().includes('email')).map(c => <th key={c}>{c}</th>)}
                       <th>Status</th>
                       <th>Opened</th>
+                      <th>Follow-ups</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -547,6 +565,11 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
                           </span>
                         </td>
                         <td>{r.openedAt ? <span style={{color:'var(--green)',fontSize:11}}>{new Date(r.openedAt).toLocaleString('en-PK',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true})}</span> : <span style={{color:'var(--text3)'}}>—</span>}</td>
+                        <td>
+                          {(r as any).followUpCount > 0
+                            ? <span style={{fontSize:11, fontWeight:600, color:'var(--accent2)'}}>#{(r as any).followUpCount}</span>
+                            : <span style={{color:'var(--text3)', fontSize:11}}>—</span>}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -613,33 +636,50 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
             )}
           </div>
 
-          {/* Follow-up Card — only when campaign is done and has sent recipients */}
+          {/* Follow-up Card */}
           {sent > 0 && (
             <div className={styles.card} style={{marginTop:12}}>
               <div className={styles.cardTitle}>Follow-up</div>
 
-              <div style={{display:'flex', flexDirection:'column', gap:8, marginBottom:12}}>
-                <button
-                  className={`${styles.btnGhost} ${showFollowUp === 'not_opened' ? styles.btnGhostActive : ''}`}
-                  onClick={() => setShowFollowUp(showFollowUp === 'not_opened' ? null : 'not_opened')}
-                  style={{justifyContent:'space-between', display:'flex', alignItems:'center'}}
-                >
-                  <span>📭 Not Opened</span>
-                  <span style={{fontSize:11, color:'var(--text3)'}}>{notOpened} recipients</span>
-                </button>
-                <button
-                  className={`${styles.btnGhost} ${showFollowUp === 'opened' ? styles.btnGhostActive : ''}`}
-                  onClick={() => setShowFollowUp(showFollowUp === 'opened' ? null : 'opened')}
-                  style={{justifyContent:'space-between', display:'flex', alignItems:'center'}}
-                >
-                  <span>📬 Opened</span>
-                  <span style={{fontSize:11, color:'var(--text3)'}}>{opened} recipients</span>
-                </button>
-              </div>
+              {/* Not Opened groups */}
+              {notOpenedGroups.length > 0 && (
+                <div style={{marginBottom:10}}>
+                  <div className={styles.label} style={{marginBottom:6}}>📭 Not Opened</div>
+                  {notOpenedGroups.map(({level, count}) => (
+                    <button
+                      key={level}
+                      className={`${styles.btnGhost} ${showFollowUp === 'not_opened' && followUpLevel === level ? styles.btnGhostActive : ''}`}
+                      onClick={() => { setShowFollowUp('not_opened'); setFollowUpLevel(level); setFollowUpTemplateId('') }}
+                      style={{display:'flex', alignItems:'center', justifyContent:'space-between', width:'100%', marginBottom:4}}
+                    >
+                      <span>{level === 0 ? 'No follow-up yet' : `Follow-up ${level} sent`}</span>
+                      <span style={{fontSize:11, color:'var(--text3)'}}>{count} recipients</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Opened groups */}
+              {openedGroups.length > 0 && (
+                <div style={{marginBottom:10}}>
+                  <div className={styles.label} style={{marginBottom:6}}>📬 Opened</div>
+                  {openedGroups.map(({level, count}) => (
+                    <button
+                      key={level}
+                      className={`${styles.btnGhost} ${showFollowUp === 'opened' && followUpLevel === level ? styles.btnGhostActive : ''}`}
+                      onClick={() => { setShowFollowUp('opened'); setFollowUpLevel(level); setFollowUpTemplateId('') }}
+                      style={{display:'flex', alignItems:'center', justifyContent:'space-between', width:'100%', marginBottom:4}}
+                    >
+                      <span>{level === 0 ? 'No follow-up yet' : `Follow-up ${level} sent`}</span>
+                      <span style={{fontSize:11, color:'var(--text3)'}}>{count} recipients</span>
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {showFollowUp && (
                 <>
-                  <div className={styles.formGroup}>
+                  <div className={styles.formGroup} style={{marginTop:8}}>
                     <label className={styles.label}>Follow-up Template</label>
                     <select className={styles.input} value={followUpTemplateId} onChange={e => setFollowUpTemplateId(e.target.value)}>
                       <option value="">Select template…</option>
@@ -647,16 +687,19 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
                     </select>
                   </div>
                   <div className={styles.hint} style={{marginBottom:10}}>
-                    Will send as a reply in the same email thread
+                    Sends as reply in same thread · Follow-up #{followUpLevel + 1}
                   </div>
                   <button
                     className={styles.sendBtn}
                     onClick={startFollowUp}
                     disabled={sendingFollowUp || !followUpTemplateId}
                   >
-                    {sendingFollowUp ? (
-                      <span className={styles.sendingDots}>Sending<span>...</span></span>
-                    ) : `🔁 Send Follow-up to ${showFollowUp === 'opened' ? opened : notOpened}`}
+                    {sendingFollowUp
+                      ? <span className={styles.sendingDots}>Sending<span>...</span></span>
+                      : `🔁 Send Follow-up #${followUpLevel + 1}`}
+                  </button>
+                  <button className={styles.btnGhost} style={{width:'100%', marginTop:6}} onClick={() => { setShowFollowUp(null); setFollowUpTemplateId('') }}>
+                    Cancel
                   </button>
                 </>
               )}

@@ -36,16 +36,18 @@ model Campaign {
 }
 
 model Recipient {
-  id         String    @id @default(cuid())
-  campaignId String
-  campaign   Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  email      String
-  data       Json      // all column values as key-value pairs
-  status     String    @default("pending") // pending, sent, error
-  sentAt     DateTime?
-  openedAt   DateTime?
-  trackId    String?   @unique
-  messageId  String?   // Gmail Message-ID for threading
-  error      String?
-  createdAt  DateTime  @default(now())
+  id                  String    @id @default(cuid())
+  campaignId          String
+  campaign            Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  email               String
+  data                Json
+  status              String    @default("pending")
+  sentAt              DateTime?
+  openedAt            DateTime?
+  trackId             String?   @unique
+  messageId           String?
+  followUpCount       Int       @default(0)
+  originalRecipientId String?
+  error               String?
+  createdAt           DateTime  @default(now())
 }
