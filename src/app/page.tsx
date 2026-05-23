@@ -90,7 +90,7 @@ export default function App() {
       >
         {/* Logo */}
         <div className={styles.logo}>
-          <div className={styles.logoIcon}>
+          <div className={styles.logoIcon} onClick={() => window.location.reload()} style={{cursor:'pointer'}} title="Go to home">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
               <rect x="2" y="4" width="20" height="16" rx="3" stroke="white" strokeWidth="1.8"/>
               <path d="M2 8l10 6 10-6" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
@@ -321,6 +321,7 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
   const [followUpTemplateId, setFollowUpTemplateId] = useState('')
   const [followUpLevel, setFollowUpLevel]     = useState(0)
   const [sendingFollowUp, setSendingFollowUp] = useState(false)
+  const [selectedRecipients, setSelectedRecipients] = useState<Set<string>>(new Set())
   const fileRef  = useRef<HTMLInputElement>(null)
 
   useEffect(() => { loadRecipients(); loadTemplates() }, [])
@@ -432,6 +433,7 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
         templateId: followUpTemplateId,
         followUpType: showFollowUp,
         followUpLevel,
+        selectedIds: selectedRecipients.size > 0 ? [...selectedRecipients] : null,
         delayMin, delayMax, fromName, fromEmail
       })
     })
@@ -441,6 +443,7 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
     showToast(`Follow-up sent to ${d.sentCount} recipients!`)
     setShowFollowUp(null)
     setFollowUpTemplateId('')
+    setSelectedRecipients(new Set())
     loadRecipients()
   }
 
@@ -545,6 +548,15 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
                 <table className={styles.table}>
                   <thead>
                     <tr>
+                      <th style={{width:32}}>
+                        <input type="checkbox"
+                          checked={selectedRecipients.size === recipients.filter(r => r.status === 'sent').length && recipients.filter(r => r.status === 'sent').length > 0}
+                          onChange={e => {
+                            if (e.target.checked) setSelectedRecipients(new Set(recipients.filter(r => r.status === 'sent').map(r => r.id)))
+                            else setSelectedRecipients(new Set())
+                          }}
+                        />
+                      </th>
                       <th>Email</th>
                       {columns.slice(0,3).filter(c => !c.toLowerCase().includes('email')).map(c => <th key={c}>{c}</th>)}
                       <th>Status</th>
@@ -554,7 +566,19 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
                   </thead>
                   <tbody>
                     {recipients.map(r => (
-                      <tr key={r.id}>
+                      <tr key={r.id} style={{background: selectedRecipients.has(r.id) ? 'var(--bg3)' : ''}}>
+                        <td>
+                          {r.status === 'sent' && (
+                            <input type="checkbox"
+                              checked={selectedRecipients.has(r.id)}
+                              onChange={e => {
+                                const next = new Set(selectedRecipients)
+                                e.target.checked ? next.add(r.id) : next.delete(r.id)
+                                setSelectedRecipients(next)
+                              }}
+                            />
+                          )}
+                        </td>
                         <td className={styles.emailCell}>{r.email}</td>
                         {columns.slice(0,3).filter(c => !c.toLowerCase().includes('email')).map(c => (
                           <td key={c}>{(r.data as any)[c] || '—'}</td>
@@ -696,7 +720,9 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
                   >
                     {sendingFollowUp
                       ? <span className={styles.sendingDots}>Sending<span>...</span></span>
-                      : `🔁 Send Follow-up #${followUpLevel + 1}`}
+                      : selectedRecipients.size > 0
+                        ? `🔁 Send to ${selectedRecipients.size} selected`
+                        : `🔁 Send Follow-up #${followUpLevel + 1}`}
                   </button>
                   <button className={styles.btnGhost} style={{width:'100%', marginTop:6}} onClick={() => { setShowFollowUp(null); setFollowUpTemplateId('') }}>
                     Cancel
