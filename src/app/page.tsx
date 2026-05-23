@@ -560,8 +560,8 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
                           <td key={c}>{(r.data as any)[c] || '—'}</td>
                         ))}
                         <td>
-                          <span className={styles.statusBadge} data-status={r.status}>
-                            {r.status === 'sent' ? '✓ Sent' : r.status === 'error' ? '✗ Error' : '· Pending'}
+                          <span className={styles.statusBadge} data-status={r.openedAt ? 'opened' : r.status}>
+                            {r.openedAt ? '✓ Opened' : r.status === 'sent' ? '✓ Sent' : r.status === 'error' ? '✗ Error' : '· Pending'}
                           </span>
                         </td>
                         <td>{r.openedAt ? <span style={{color:'var(--green)',fontSize:11}}>{new Date(r.openedAt).toLocaleString('en-PK',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true})}</span> : <span style={{color:'var(--text3)'}}>—</span>}</td>
