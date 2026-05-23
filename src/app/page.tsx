@@ -607,97 +607,59 @@ function ComposeTab({ templates, onSaved, showToast }: any) {
     },
   })
 
-  async function newTemplate() {
-    const r = await fetch('/api/templates', {
+  function resetEditor() {
+    setSelected(null)
+    setName(''); setSubject(''); setBody(''); setAttachmentName('')
+    editor?.commands.setContent('')
+  }
+
+  function newTemplate() {
+    // UI updates instantly — DB write happens in background
+    const tempId = 'temp_' + Date.now()
+    const tempTemplate: Template = { id: tempId, name: 'Untitled', subject: '', body: '', updatedAt: new Date().toISOString() }
+    setSelected(tempTemplate)
+    setName(''); setSubject(''); setBody(''); setAttachmentName('')
+    editor?.commands.setContent('')
+    // Background DB create — swap temp ID with real ID when done
+    fetch('/api/templates', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: 'Untitled', subject: '', body: '' })
+    }).then(r => r.json()).then(created => {
+      setSelected(prev => prev?.id === tempId ? created : prev)
+      onSaved()
     })
-    const created = await r.json()
-    setSelected(created)
-    setName(''); setSubject(''); setBody(''); setAttachmentName('')
-    editor?.commands.setContent('')
-    onSaved() // refresh list so tile appears
   }
 
-  function editTemplate(t: Template) {
-    setSelected(t); setName(t.name === 'Untitled' ? '' : t.name); setSubject(t.subject); setBody(t.body)
-    setAttachmentName((t as any).attachmentName || '')
-    editor?.commands.setContent(t.body)
-  }
-
-  async function uploadAttachment(file: File) {
-    // Template always exists now — created on "New Template" click
-    if (!selected?.id) return showToast('Something went wrong, please refresh', 'error')
-    setUploading(true)
-    const form = new FormData()
-    form.append('file', file)
-    form.append('templateId', selected.id)
-    const r = await fetch('/api/upload', { method: 'POST', body: form })
-    const d = await r.json()
-    setUploading(false)
-    if (d.error) return showToast(d.error, 'error')
-    setAttachmentName(d.attachmentName)
-    showToast(`Attached: ${d.attachmentName}`)
-  }
-
-  async function removeAttachment() {
-    if (!selected) return
-    await fetch('/api/upload', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ templateId: selected.id })
-    })
-    setAttachmentName('')
-    showToast('Attachment removed')
-  }
-
-  function detectPlaceholders() {
-    const all = subject + ' ' + body
-    const matches = all.match(/\{\{([^}]+)\}\}/g) || []
-    return [...new Set(matches.map(m => m.replace(/\{\{|\}\}/g, '').trim()))]
+  function cancelTemplate() {
+    const id = selected?.id
+    resetEditor() // instant UI reset
+    if (id) {
+      fetch(`/api/templates?id=${id}`, { method: 'DELETE' })
+        .then(() => onSaved())
+    }
   }
 
   async function saveTemplate() {
     if (!selected?.id) return showToast('No template selected', 'error')
     if (!name || !subject || !body) return showToast('Fill in name, subject and body', 'error')
-    setSaving(true)
-    const r = await fetch('/api/templates', {
+    const id = selected.id
+    resetEditor() // instant UI reset — don't wait for DB
+    showToast('Template saved!')
+    fetch('/api/templates', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: selected.id, name, subject, body })
-    })
-    setSaving(false)
-    if (!r.ok) return showToast('Failed to save', 'error')
-    onSaved()
-    showToast('Template saved!')
-    // Reset to empty state so user sees the "new template" box again
-    setSelected(null)
-    setName(''); setSubject(''); setBody(''); setAttachmentName('')
-    editor?.commands.setContent('')
-  }
-
-  async function cancelTemplate() {
-    // Delete the unsaved Untitled template from DB and reset editor
-    if (selected?.id) {
-      await fetch(`/api/templates?id=${selected.id}`, { method: 'DELETE' })
-      onSaved()
-    }
-    setSelected(null)
-    setName(''); setSubject(''); setBody(''); setAttachmentName('')
-    editor?.commands.setContent('')
+      body: JSON.stringify({ id, name, subject, body })
+    }).then(() => onSaved())
   }
 
   async function deleteTemplate(id: string) {
     if (!confirm('Delete this template?')) return
-    await fetch(`/api/templates?id=${id}`, { method: 'DELETE' })
-    if (selected?.id === id) {
-      setSelected(null)
-      setName(''); setSubject(''); setBody(''); setAttachmentName('')
-      editor?.commands.setContent('')
-    }
-    onSaved()
+    if (selected?.id === id) resetEditor() // instant UI reset
+    onSaved() // optimistically remove from list
     showToast('Template deleted')
+    fetch(`/api/templates?id=${id}`, { method: 'DELETE' })
+      .then(() => onSaved())
   }
 
   const placeholders = detectPlaceholders()
