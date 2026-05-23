@@ -712,10 +712,11 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
 }
 
 // ─── Compose Tab ──────────────────────────────────────────
-function ComposeTab({ templates, onSaved, showToast }: any) {
+function ComposeTab({ templates: initialTemplates, onSaved, showToast }: any) {
   const { useEditor, EditorContent } = require('@tiptap/react')
   const StarterKit = require('@tiptap/starter-kit').default
 
+  const [localTemplates, setLocalTemplates] = useState<Template[]>(initialTemplates || [])
   const [selected, setSelected]         = useState<Template | null>(null)
   const [name, setName]                 = useState('')
   const [subject, setSubject]           = useState('')
@@ -724,6 +725,9 @@ function ComposeTab({ templates, onSaved, showToast }: any) {
   const [attachmentName, setAttachmentName] = useState('')
   const [uploading, setUploading]       = useState(false)
   const attachRef = useRef<HTMLInputElement>(null)
+
+  // Sync when parent refreshes templates
+  useEffect(() => { setLocalTemplates(initialTemplates || []) }, [initialTemplates])
 
   const editor = useEditor({
     extensions: [StarterKit],
@@ -740,37 +744,35 @@ function ComposeTab({ templates, onSaved, showToast }: any) {
   }
 
   function newTemplate() {
-    // UI updates instantly — DB write happens in background
     const tempId = 'temp_' + Date.now()
     const tempTemplate: Template = { id: tempId, name: 'Untitled', subject: '', body: '', updatedAt: new Date().toISOString() }
+    setLocalTemplates(prev => [tempTemplate, ...prev])
     setSelected(tempTemplate)
     setName(''); setSubject(''); setBody(''); setAttachmentName('')
     editor?.commands.setContent('')
-    // Background DB create — swap temp ID with real ID when done
     fetch('/api/templates', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: 'Untitled', subject: '', body: '' })
     }).then(r => r.json()).then(created => {
+      setLocalTemplates(prev => prev.map(t => t.id === tempId ? created : t))
       setSelected(prev => prev?.id === tempId ? created : prev)
-      onSaved()
     })
   }
 
   function cancelTemplate() {
     const id = selected?.id
-    resetEditor() // instant UI reset
-    if (id) {
-      fetch(`/api/templates?id=${id}`, { method: 'DELETE' })
-        .then(() => onSaved())
-    }
+    if (id) setLocalTemplates(prev => prev.filter(t => t.id !== id))
+    resetEditor()
+    if (id) fetch(`/api/templates?id=${id}`, { method: 'DELETE' })
   }
 
   async function saveTemplate() {
     if (!selected?.id) return showToast('No template selected', 'error')
     if (!name || !subject || !body) return showToast('Fill in name, subject and body', 'error')
     const id = selected.id
-    resetEditor() // instant UI reset — don't wait for DB
+    setLocalTemplates(prev => prev.map(t => t.id === id ? { ...t, name, subject, body } : t))
+    resetEditor()
     showToast('Template saved!')
     fetch('/api/templates', {
       method: 'PUT',
@@ -779,13 +781,12 @@ function ComposeTab({ templates, onSaved, showToast }: any) {
     }).then(() => onSaved())
   }
 
-  async function deleteTemplate(id: string) {
+  function deleteTemplate(id: string) {
     if (!confirm('Delete this template?')) return
-    if (selected?.id === id) resetEditor() // instant UI reset
-    onSaved() // optimistically remove from list
+    setLocalTemplates(prev => prev.filter(t => t.id !== id)) // instant remove
+    if (selected?.id === id) resetEditor()
     showToast('Template deleted')
     fetch(`/api/templates?id=${id}`, { method: 'DELETE' })
-      .then(() => onSaved())
   }
 
   function detectPlaceholders() {
@@ -842,13 +843,13 @@ function ComposeTab({ templates, onSaved, showToast }: any) {
       <div className={styles.composeGrid}>
         {/* Template list */}
         <div className={styles.templateList}>
-          {!templates.length && (
+          {!localTemplates.length && (
             <div className={styles.empty} style={{padding:'30px 20px'}}>
               <div className={styles.emptyIcon} style={{fontSize:24}}>✦</div>
               <div className={styles.emptyText}>No templates yet</div>
             </div>
           )}
-          {templates.map((t: Template) => (
+          {localTemplates.map((t: Template) => (
             <div key={t.id} className={`${styles.templateItem} ${selected?.id === t.id ? styles.templateItemActive : ''}`} onClick={() => editTemplate(t)}>
               <div className={styles.templateItemName}>
                 {selected?.id === t.id ? (name || 'Untitled') : (t.name || 'Untitled')}
