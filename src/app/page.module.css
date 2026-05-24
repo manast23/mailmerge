@@ -479,7 +479,16 @@ textarea.input { resize: vertical; min-height: 80px; line-height: 1.5; }
   align-items: start;
 }
 
-.detailLeft { min-width: 0; }
+.detailLeft {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.detailRight {
+  position: sticky;
+  top: 24px;
+}
 
 /* ─── Import ─────────────────────────── */
 .importTabs {
@@ -585,12 +594,12 @@ textarea.input { resize: vertical; min-height: 80px; line-height: 1.5; }
 
 /* ─── Table Container ────────────────── */
 .tableContainer {
-  max-height: calc(100vh - 420px);
   overflow-y: auto;
   overflow-x: auto;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   margin-top: 4px;
+  flex: 1;
 }
 .tableContainer::-webkit-scrollbar { width: 5px; height: 5px; }
 .tableContainer::-webkit-scrollbar-track { background: transparent; }
