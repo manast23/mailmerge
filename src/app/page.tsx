@@ -322,6 +322,7 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
   const [followUpLevel, setFollowUpLevel]     = useState(0)
   const [sendingFollowUp, setSendingFollowUp] = useState(false)
   const [selectedRecipients, setSelectedRecipients] = useState<Set<string>>(new Set())
+  const [expandedRecipient, setExpandedRecipient]   = useState<string | null>(null)
   const fileRef  = useRef<HTMLInputElement>(null)
 
   useEffect(() => { loadRecipients(); loadTemplates() }, [])
@@ -566,8 +567,13 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
                   </thead>
                   <tbody>
                     {recipients.map(r => (
-                      <tr key={r.id} style={{background: selectedRecipients.has(r.id) ? 'var(--bg3)' : ''}}>
-                        <td>
+                      <>
+                      <tr
+                        key={r.id}
+                        style={{background: selectedRecipients.has(r.id) ? 'var(--bg3)' : '', cursor:'pointer'}}
+                        onClick={() => setExpandedRecipient(expandedRecipient === r.id ? null : r.id)}
+                      >
+                        <td onClick={e => e.stopPropagation()}>
                           {r.status === 'sent' && (
                             <input type="checkbox"
                               checked={selectedRecipients.has(r.id)}
@@ -579,7 +585,14 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
                             />
                           )}
                         </td>
-                        <td className={styles.emailCell}>{r.email}</td>
+                        <td className={styles.emailCell}>
+                          <span style={{display:'flex', alignItems:'center', gap:6}}>
+                            {(r as any).followUps?.length > 0 && (
+                              <span style={{fontSize:10, color:'var(--text3)'}}>{expandedRecipient === r.id ? '▾' : '▸'}</span>
+                            )}
+                            {r.email}
+                          </span>
+                        </td>
                         {columns.slice(0,3).filter(c => !c.toLowerCase().includes('email')).map(c => (
                           <td key={c}>{(r.data as any)[c] || '—'}</td>
                         ))}
@@ -595,6 +608,32 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
                             : <span style={{color:'var(--text3)', fontSize:11}}>—</span>}
                         </td>
                       </tr>
+                      {/* Expanded timeline */}
+                      {expandedRecipient === r.id && (r as any).followUps?.length > 0 && (
+                        <tr key={r.id + '_timeline'}>
+                          <td colSpan={6 + columns.slice(0,3).filter(c => !c.toLowerCase().includes('email')).length} style={{padding:0, background:'var(--bg3)', borderBottom:'1px solid var(--border)'}}>
+                            <div style={{padding:'10px 16px 10px 48px'}}>
+                              {/* Original email */}
+                              <div style={{display:'flex', alignItems:'center', gap:12, padding:'6px 0', borderBottom:'1px dashed var(--border)', fontSize:12}}>
+                                <span style={{width:20, height:20, borderRadius:'50%', background:'var(--text)', color:'white', display:'flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, flexShrink:0}}>0</span>
+                                <span style={{color:'var(--text2)', flex:1}}>Original email</span>
+                                <span style={{color:'var(--text3)'}}>{r.sentAt ? new Date(r.sentAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'}) : '—'}</span>
+                                <span className={styles.statusBadge} data-status={r.openedAt ? 'opened' : 'sent'}>{r.openedAt ? '✓ Opened' : '✓ Sent'}</span>
+                              </div>
+                              {/* Follow-ups */}
+                              {(r as any).followUps.map((f: any) => (
+                                <div key={f.id} style={{display:'flex', alignItems:'center', gap:12, padding:'6px 0', borderBottom:'1px dashed var(--border)', fontSize:12}}>
+                                  <span style={{width:20, height:20, borderRadius:'50%', background: f.openedAt ? 'var(--green)' : 'var(--border2)', color: f.openedAt ? 'white' : 'var(--text2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, flexShrink:0}}>#{f.number}</span>
+                                  <span style={{color:'var(--text2)', flex:1}}>{f.template?.name || 'Follow-up'}</span>
+                                  <span style={{color:'var(--text3)'}}>{f.sentAt ? new Date(f.sentAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'}) : '—'}</span>
+                                  <span className={styles.statusBadge} data-status={f.openedAt ? 'opened' : f.status}>{f.openedAt ? '✓ Opened' : f.status === 'sent' ? '✓ Sent' : f.status === 'error' ? '✗ Error' : '· Pending'}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      </>
                     ))}
                   </tbody>
                 </table>

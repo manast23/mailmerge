@@ -24,7 +24,16 @@ export async function GET(req: NextRequest) {
   }
   if (search) where.email = { contains: search, mode: 'insensitive' }
 
-  const recipients = await prisma.recipient.findMany({ where, orderBy: { createdAt: 'asc' } })
+  const recipients = await prisma.recipient.findMany({
+    where,
+    orderBy: { createdAt: 'asc' },
+    include: {
+      followUps: {
+        orderBy: { number: 'asc' },
+        include: { template: { select: { name: true, subject: true } } }
+      }
+    }
+  })
   return NextResponse.json(recipients)
 }
 
