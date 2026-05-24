@@ -187,11 +187,14 @@ export default function App() {
 }
 
 // ─── Campaigns Tab ────────────────────────────────────────
-function CampaignsTab({ campaigns, templates, onRefresh, showToast }: any) {
+function CampaignsTab({ campaigns: initialCampaigns, templates, onRefresh, showToast }: any) {
+  const [localCampaigns, setLocalCampaigns] = useState<Campaign[]>(initialCampaigns || [])
   const [creating, setCreating]         = useState(false)
   const [newName, setNewName]           = useState('')
   const [newTemplateId, setNewTemplate] = useState('')
   const [selected, setSelected]         = useState<Campaign | null>(null)
+
+  useEffect(() => { setLocalCampaigns(initialCampaigns || []) }, [initialCampaigns])
 
   async function createCampaign() {
     if (!newName || !newTemplateId) return showToast('Enter name and select template', 'error')
@@ -201,16 +204,18 @@ function CampaignsTab({ campaigns, templates, onRefresh, showToast }: any) {
       body: JSON.stringify({ name: newName, templateId: newTemplateId })
     })
     const c = await r.json()
+    setLocalCampaigns(prev => [c, ...prev])
     setCreating(false); setNewName(''); setNewTemplate('')
-    onRefresh(); setSelected(c)
+    setSelected(c)
     showToast('Campaign created!')
   }
 
-  async function deleteCampaign(id: string) {
+  function deleteCampaign(id: string) {
     if (!confirm('Delete this campaign?')) return
-    await fetch(`/api/campaigns?id=${id}`, { method: 'DELETE' })
+    setLocalCampaigns(prev => prev.filter(c => c.id !== id)) // instant remove
     if (selected?.id === id) setSelected(null)
-    onRefresh(); showToast('Campaign deleted')
+    showToast('Campaign deleted')
+    fetch(`/api/campaigns?id=${id}`, { method: 'DELETE' })
   }
 
   const statusColor: any = { draft: 'var(--text3)', sending: 'var(--orange)', done: 'var(--green)', scheduled: 'var(--purple)' }
@@ -238,13 +243,13 @@ function CampaignsTab({ campaigns, templates, onRefresh, showToast }: any) {
       <div className={styles.composeGrid}>
         {/* Campaign list */}
         <div className={styles.templateList}>
-          {!campaigns.length && (
+          {!localCampaigns.length && (
             <div className={styles.empty} style={{padding:'30px 20px'}}>
               <div className={styles.emptyIcon} style={{fontSize:24}}>◈</div>
               <div className={styles.emptyText}>No campaigns yet</div>
             </div>
           )}
-          {campaigns.map((c: Campaign) => {
+          {localCampaigns.map((c: Campaign) => {
             const isActive = (selected as Campaign | null)?.id === c.id
             return (
             <div
