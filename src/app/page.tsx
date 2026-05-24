@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import styles from './page.module.css'
 
 // ─── Types ───────────────────────────────────────────────
@@ -567,7 +567,7 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
                   </thead>
                   <tbody>
                     {recipients.map(r => (
-                      <>
+                      <React.Fragment key={r.id}>
                       <tr
                         key={r.id}
                         style={{background: selectedRecipients.has(r.id) ? 'var(--bg3)' : '', cursor:'pointer'}}
@@ -633,7 +633,7 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
                           </td>
                         </tr>
                       )}
-                      </>
+                      </React.Fragment>
                     ))}
                   </tbody>
                 </table>
