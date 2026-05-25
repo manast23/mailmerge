@@ -602,7 +602,6 @@ function CampaignDetail({ campaign, templates, onBack, showToast }: any) {
                       {columns.slice(0,3).filter(c => !c.toLowerCase().includes('email')).map(c => <th key={c}>{c}</th>)}
                       <th>Status</th>
                       <th>Opened</th>
-                      <th>Follow-ups</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -642,11 +641,6 @@ function CampaignDetail({ campaign, templates, onBack, showToast }: any) {
                           </span>
                         </td>
                         <td>{r.openedAt ? <span style={{color:'var(--green)',fontSize:11}}>{new Date(r.openedAt).toLocaleString('en-PK',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true})}</span> : <span style={{color:'var(--text3)'}}>—</span>}</td>
-                        <td>
-                          {(r as any).followUpCount > 0
-                            ? <span style={{fontSize:11, fontWeight:600, color:'var(--accent2)'}}>#{(r as any).followUpCount}</span>
-                            : <span style={{color:'var(--text3)', fontSize:11}}>—</span>}
-                        </td>
                       </tr>
                       {/* Expanded timeline */}
                       {expandedRecipient === r.id && (r as any).followUps?.length > 0 && (
@@ -744,45 +738,45 @@ function CampaignDetail({ campaign, templates, onBack, showToast }: any) {
             <div className={styles.card} style={{marginTop:12}}>
               <div className={styles.cardTitle}>Follow-up</div>
 
-              {/* Not Opened groups */}
-              {notOpenedGroups.length > 0 && (
-                <div style={{marginBottom:10}}>
-                  <div className={styles.label} style={{marginBottom:6}}>📭 Not Opened</div>
-                  {notOpenedGroups.map(({level, count}) => (
-                    <button
-                      key={level}
-                      className={`${styles.btnGhost} ${showFollowUp === 'not_opened' && followUpLevel === level ? styles.btnGhostActive : ''}`}
-                      onClick={() => { setShowFollowUp('not_opened'); setFollowUpLevel(level); setFollowUpTemplateId('') }}
-                      style={{display:'flex', alignItems:'center', justifyContent:'space-between', width:'100%', marginBottom:4}}
-                    >
-                      <span>{level === 0 ? 'No follow-up yet' : `Follow-up ${level} sent`}</span>
-                      <span style={{fontSize:11, color:'var(--text3)'}}>{count} recipients</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Opened groups */}
-              {openedGroups.length > 0 && (
-                <div style={{marginBottom:10}}>
-                  <div className={styles.label} style={{marginBottom:6}}>📬 Opened</div>
-                  {openedGroups.map(({level, count}) => (
-                    <button
-                      key={level}
-                      className={`${styles.btnGhost} ${showFollowUp === 'opened' && followUpLevel === level ? styles.btnGhostActive : ''}`}
-                      onClick={() => { setShowFollowUp('opened'); setFollowUpLevel(level); setFollowUpTemplateId('') }}
-                      style={{display:'flex', alignItems:'center', justifyContent:'space-between', width:'100%', marginBottom:4}}
-                    >
-                      <span>{level === 0 ? 'No follow-up yet' : `Follow-up ${level} sent`}</span>
-                      <span style={{fontSize:11, color:'var(--text3)'}}>{count} recipients</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+              {/* Single dropdown for group selection */}
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Target Group</label>
+                <select
+                  className={styles.input}
+                  value={showFollowUp ? `${showFollowUp}__${followUpLevel}` : ''}
+                  onChange={e => {
+                    if (!e.target.value) { setShowFollowUp(null); setFollowUpTemplateId(''); return }
+                    const [type, level] = e.target.value.split('__')
+                    setShowFollowUp(type as 'opened'|'not_opened')
+                    setFollowUpLevel(Number(level))
+                    setFollowUpTemplateId('')
+                  }}
+                >
+                  <option value="">Select group…</option>
+                  {notOpenedGroups.length > 0 && (
+                    <optgroup label="📭 Not Opened">
+                      {notOpenedGroups.map(({level, count}) => (
+                        <option key={`not_opened__${level}`} value={`not_opened__${level}`}>
+                          {level === 0 ? 'No follow-up yet' : `Follow-up ${level} sent`} ({count})
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {openedGroups.length > 0 && (
+                    <optgroup label="📬 Opened">
+                      {openedGroups.map(({level, count}) => (
+                        <option key={`opened__${level}`} value={`opened__${level}`}>
+                          {level === 0 ? 'No follow-up yet' : `Follow-up ${level} sent`} ({count})
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+              </div>
 
               {showFollowUp && (
                 <>
-                  <div className={styles.formGroup} style={{marginTop:8}}>
+                  <div className={styles.formGroup}>
                     <label className={styles.label}>Follow-up Template</label>
                     <select className={styles.input} value={followUpTemplateId} onChange={e => setFollowUpTemplateId(e.target.value)}>
                       <option value="">Select template…</option>
