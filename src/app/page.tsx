@@ -487,10 +487,10 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
         </button>
       </div>
 
-      <div className={styles.detailGrid} style={{alignItems:'stretch'}}>
+      <div className={styles.detailGrid}>
         {/* Left — Recipients */}
         <div className={styles.detailLeft}>
-          <div className={styles.card} style={{display:'flex', flexDirection:'column', flex:1}}>
+          <div className={styles.card}>
             <div className={styles.cardHeader}>
               <div className={styles.cardTitle}>Recipients</div>
               <div style={{display:'flex',gap:8}}>

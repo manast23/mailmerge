@@ -594,12 +594,12 @@ textarea.input { resize: vertical; min-height: 80px; line-height: 1.5; }
 
 /* ─── Table Container ────────────────── */
 .tableContainer {
+  height: 220px;
   overflow-y: auto;
   overflow-x: auto;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   margin-top: 4px;
-  flex: 1;
 }
 .tableContainer::-webkit-scrollbar { width: 5px; height: 5px; }
 .tableContainer::-webkit-scrollbar-track { background: transparent; }
