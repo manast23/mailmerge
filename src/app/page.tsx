@@ -500,24 +500,15 @@ function CampaignDetail({ campaign, templates, onBack, showToast }: any) {
       <div className={styles.pageHeader}>
         <div style={{display:'flex',alignItems:'center',gap:12}}>
           <button className={styles.backBtn} onClick={onBack}>←</button>
-          {editing ? (
-            <div style={{display:'flex', gap:8, alignItems:'center'}}>
-              <input className={styles.input} value={editName} onChange={e => setEditName(e.target.value)} style={{width:200}} />
-              <select className={styles.input} value={editTemplateId} onChange={e => setEditTemplateId(e.target.value)} style={{width:160}}>
-                {templates.map((t: Template) => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-              <button className={styles.btnPrimary} onClick={saveCampaignEdit}>Save</button>
-              <button className={styles.btnGhost} onClick={() => setEditing(false)}>Cancel</button>
+          <div>
+            <div style={{display:'flex', alignItems:'center', gap:8}}>
+              <h1 className={styles.pageTitle}>{campaign.name}</h1>
+              <button className={styles.btnGhost} style={{padding:'3px 8px', fontSize:11}} onClick={() => setEditing(!editing)}>
+                {editing ? 'Cancel' : 'Edit'}
+              </button>
             </div>
-          ) : (
-            <div>
-              <div style={{display:'flex', alignItems:'center', gap:8}}>
-                <h1 className={styles.pageTitle}>{campaign.name}</h1>
-                <button className={styles.btnGhost} style={{padding:'3px 8px', fontSize:11}} onClick={() => setEditing(true)}>Edit</button>
-              </div>
-              <p className={styles.pageSubtitle}>{campaign.template?.name} · {campaign.template?.subject}</p>
-            </div>
-          )}
+            <p className={styles.pageSubtitle}>{campaign.template?.name} · {campaign.template?.subject}</p>
+          </div>
         </div>
         <button className={styles.refreshBtn} onClick={() => { loadRecipients(); showToast('Refreshed!', 'info') }}>
           <span className={styles.refreshIcon}>↻</span> Refresh
@@ -678,8 +669,27 @@ function CampaignDetail({ campaign, templates, onBack, showToast }: any) {
           </div>
         </div>
 
-        {/* Right — Send options */}
+        {/* Right — Send options or Edit */}
         <div className={styles.detailRight}>
+          {editing ? (
+            <div className={styles.card}>
+              <div className={styles.cardTitle}>Edit Campaign</div>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Campaign Name</label>
+                <input className={styles.input} value={editName} onChange={e => setEditName(e.target.value)} placeholder="Campaign name" autoFocus />
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Template</label>
+                <select className={styles.input} value={editTemplateId} onChange={e => setEditTemplateId(e.target.value)}>
+                  {templates.map((t: Template) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </div>
+              <div className={styles.formActions}>
+                <button className={styles.btnGhost} onClick={() => setEditing(false)}>Cancel</button>
+                <button className={styles.btnPrimary} onClick={saveCampaignEdit}>Update</button>
+              </div>
+            </div>
+          ) : (<>
           <div className={styles.card}>
             <div className={styles.cardTitle}>Send Settings</div>
 
@@ -836,6 +846,7 @@ function CampaignDetail({ campaign, templates, onBack, showToast }: any) {
               )}
             </div>
           )}
+          </>)}
         </div>
       </div>
     </div>
