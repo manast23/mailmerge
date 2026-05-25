@@ -328,6 +328,8 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
   const [sendingFollowUp, setSendingFollowUp] = useState(false)
   const [selectedRecipients, setSelectedRecipients] = useState<Set<string>>(new Set())
   const [expandedRecipient, setExpandedRecipient]   = useState<string | null>(null)
+  const [followUpScheduled, setFollowUpScheduled]   = useState(false)
+  const [followUpScheduleAt, setFollowUpScheduleAt] = useState('')
   const fileRef  = useRef<HTMLInputElement>(null)
 
   useEffect(() => { loadRecipients(); loadTemplates() }, [])
@@ -440,16 +442,19 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
         followUpType: showFollowUp,
         followUpLevel,
         selectedIds: selectedRecipients.size > 0 ? [...selectedRecipients] : null,
+        scheduledAt: followUpScheduled && followUpScheduleAt ? new Date(followUpScheduleAt).toISOString() : null,
         delayMin, delayMax, fromName, fromEmail
       })
     })
     const d = await r.json()
     setSendingFollowUp(false)
     if (d.error) return showToast(d.error, 'error')
-    showToast(`Follow-up sent to ${d.sentCount} recipients!`)
+    showToast(followUpScheduled ? `Follow-up scheduled!` : `Follow-up sent to ${d.sentCount} recipients!`)
     setShowFollowUp(null)
     setFollowUpTemplateId('')
     setSelectedRecipients(new Set())
+    setFollowUpScheduled(false)
+    setFollowUpScheduleAt('')
     loadRecipients()
   }
 
@@ -754,21 +759,45 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
                       {templates.map((t: Template) => <option key={t.id} value={t.id}>{t.name}</option>)}
                     </select>
                   </div>
+
+                  {/* Schedule toggle */}
+                  <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8}}>
+                    <label className={styles.label} style={{marginBottom:0}}>Schedule</label>
+                    <button
+                      className={`${styles.toggle} ${followUpScheduled ? styles.toggleOn : ''}`}
+                      onClick={() => setFollowUpScheduled(p => !p)}
+                    >
+                      <span className={styles.toggleThumb}/>
+                    </button>
+                  </div>
+                  {followUpScheduled && (
+                    <div className={styles.formGroup}>
+                      <input
+                        className={styles.input}
+                        type="datetime-local"
+                        value={followUpScheduleAt}
+                        onChange={e => setFollowUpScheduleAt(e.target.value)}
+                      />
+                    </div>
+                  )}
+
                   <div className={styles.hint} style={{marginBottom:10}}>
                     Sends as reply in same thread · Follow-up #{followUpLevel + 1}
                   </div>
                   <button
                     className={styles.sendBtn}
                     onClick={startFollowUp}
-                    disabled={sendingFollowUp || !followUpTemplateId}
+                    disabled={sendingFollowUp || !followUpTemplateId || (followUpScheduled && !followUpScheduleAt)}
                   >
                     {sendingFollowUp
                       ? <span className={styles.sendingDots}>Sending<span>...</span></span>
-                      : selectedRecipients.size > 0
-                        ? `🔁 Send to ${selectedRecipients.size} selected`
-                        : `🔁 Send Follow-up #${followUpLevel + 1}`}
+                      : followUpScheduled
+                        ? `⏰ Schedule Follow-up #${followUpLevel + 1}`
+                        : selectedRecipients.size > 0
+                          ? `🔁 Send to ${selectedRecipients.size} selected`
+                          : `🔁 Send Follow-up #${followUpLevel + 1}`}
                   </button>
-                  <button className={styles.btnGhost} style={{width:'100%', marginTop:6}} onClick={() => { setShowFollowUp(null); setFollowUpTemplateId('') }}>
+                  <button className={styles.btnGhost} style={{width:'100%', marginTop:6}} onClick={() => { setShowFollowUp(null); setFollowUpTemplateId(''); setFollowUpScheduled(false); setFollowUpScheduleAt('') }}>
                     Cancel
                   </button>
                 </>

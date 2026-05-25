@@ -4,7 +4,7 @@ import { sendEmail, replacePlaceholders, randomDelay } from '@/lib/email'
 import { randomUUID } from 'crypto'
 
 export async function POST(req: NextRequest) {
-  const { campaignId, templateId, followUpType, followUpLevel, selectedIds, delayMin = 30, delayMax = 90, fromName, fromEmail } = await req.json()
+  const { campaignId, templateId, followUpType, followUpLevel, selectedIds, scheduledAt, delayMin = 30, delayMax = 90, fromName, fromEmail } = await req.json()
 
   if (!campaignId || !templateId || !followUpType || followUpLevel === undefined) {
     return NextResponse.json({ error: 'campaignId, templateId, followUpType and followUpLevel required' }, { status: 400 })
@@ -27,6 +27,27 @@ export async function POST(req: NextRequest) {
   const targets = await prisma.recipient.findMany({ where: whereFilter })
   if (!targets.length) return NextResponse.json({ error: 'No recipients match this filter' }, { status: 400 })
 
+  // If scheduled, create a campaign record for cron to pick up
+  if (scheduledAt) {
+    const followUpCampaign = await prisma.campaign.create({
+      data: {
+        name: `Follow-up #${followUpLevel + 1} — ${followUpType === 'opened' ? 'Opened' : 'Not Opened'}`,
+        templateId,
+        status: 'scheduled',
+        scheduledAt: new Date(scheduledAt),
+        recipients: {
+          create: targets.map(r => ({
+            email: r.email,
+            data: r.data as any,
+            status: 'pending',
+          }))
+        }
+      }
+    })
+    return NextResponse.json({ success: true, scheduled: true, campaignId: followUpCampaign.id })
+  }
+
+  // Otherwise send immediately
   let sentCount = 0
   const errors: string[] = []
   const followUpNumber = followUpLevel + 1
@@ -53,20 +74,18 @@ export async function POST(req: NextRequest) {
         references: recipient.messageId || undefined,
       })
 
-      // Save follow-up record on the recipient
       await prisma.followUp.create({
         data: {
           recipientId: recipient.id,
           templateId,
-          status:  'sent',
-          sentAt:  new Date(),
+          status:    'sent',
+          sentAt:    new Date(),
           trackId,
           messageId: result.messageId || null,
-          number:  followUpNumber,
+          number:    followUpNumber,
         }
       })
 
-      // Increment followUpCount on recipient
       await prisma.recipient.update({
         where: { id: recipient.id },
         data:  { followUpCount: { increment: 1 } }
