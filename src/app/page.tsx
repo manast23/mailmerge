@@ -433,6 +433,8 @@ function CampaignDetail({ campaign, templates, onBack, showToast }: any) {
   async function startFollowUp() {
     if (!followUpTemplateId) return showToast('Select a template for the follow-up', 'error')
     if (!showFollowUp) return
+    const isSelected = (showFollowUp as any) === 'selected'
+    if (isSelected && selectedRecipients.size === 0) return showToast('No recipients selected', 'error')
     setSendingFollowUp(true)
     const r = await fetch('/api/followup', {
       method: 'POST',
@@ -440,9 +442,9 @@ function CampaignDetail({ campaign, templates, onBack, showToast }: any) {
       body: JSON.stringify({
         campaignId: campaign.id,
         templateId: followUpTemplateId,
-        followUpType: showFollowUp,
-        followUpLevel,
-        selectedIds: selectedRecipients.size > 0 ? [...selectedRecipients] : null,
+        followUpType: isSelected ? 'not_opened' : showFollowUp, // type doesn't matter for selected
+        followUpLevel: isSelected ? 0 : followUpLevel,
+        selectedIds: isSelected ? [...selectedRecipients] : null,
         scheduledAt: followUpScheduled && followUpScheduleAt ? new Date(followUpScheduleAt).toISOString() : null,
         delayMin, delayMax, fromName, fromEmail
       })
@@ -743,9 +745,10 @@ function CampaignDetail({ campaign, templates, onBack, showToast }: any) {
                 <label className={styles.label}>Target Group</label>
                 <select
                   className={styles.input}
-                  value={showFollowUp ? `${showFollowUp}__${followUpLevel}` : ''}
+                  value={showFollowUp ? (selectedRecipients.size > 0 && showFollowUp === 'selected' ? 'selected' : `${showFollowUp}__${followUpLevel}`) : ''}
                   onChange={e => {
                     if (!e.target.value) { setShowFollowUp(null); setFollowUpTemplateId(''); return }
+                    if (e.target.value === 'selected') { setShowFollowUp('selected' as any); setFollowUpTemplateId(''); return }
                     const [type, level] = e.target.value.split('__')
                     setShowFollowUp(type as 'opened'|'not_opened')
                     setFollowUpLevel(Number(level))
@@ -753,6 +756,9 @@ function CampaignDetail({ campaign, templates, onBack, showToast }: any) {
                   }}
                 >
                   <option value="">Select group…</option>
+                  {selectedRecipients.size > 0 && (
+                    <option value="selected">✓ Selected ({selectedRecipients.size} recipients)</option>
+                  )}
                   {notOpenedGroups.length > 0 && (
                     <optgroup label="📭 Not Opened">
                       {notOpenedGroups.map(({level, count}) => (
@@ -806,7 +812,9 @@ function CampaignDetail({ campaign, templates, onBack, showToast }: any) {
                   )}
 
                   <div className={styles.hint} style={{marginBottom:10}}>
-                    Sends as reply in same thread · Follow-up #{followUpLevel + 1}
+                    {showFollowUp === 'selected' as any
+                      ? `Sends to ${selectedRecipients.size} selected recipients in same thread`
+                      : `Sends as reply in same thread · Follow-up #${followUpLevel + 1}`}
                   </div>
                   <button
                     className={styles.sendBtn}
@@ -816,8 +824,8 @@ function CampaignDetail({ campaign, templates, onBack, showToast }: any) {
                     {sendingFollowUp
                       ? <span className={styles.sendingDots}>Sending<span>...</span></span>
                       : followUpScheduled
-                        ? `⏰ Schedule Follow-up #${followUpLevel + 1}`
-                        : selectedRecipients.size > 0
+                        ? `⏰ Schedule Follow-up`
+                        : showFollowUp === 'selected' as any
                           ? `🔁 Send to ${selectedRecipients.size} selected`
                           : `🔁 Send Follow-up #${followUpLevel + 1}`}
                   </button>
