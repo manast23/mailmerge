@@ -322,7 +322,7 @@ function CampaignDetail({ campaign, templates, onBack, showToast }: any) {
   const [scheduleAt, setScheduleAt]         = useState('')
   const [useSchedule, setUseSchedule]       = useState(false)
   const [columns, setColumns]               = useState<string[]>([])
-  const [templates, setTemplates]           = useState<Template[]>([])
+  const [allTemplates, setAllTemplates]     = useState<Template[]>([])
   const [showFollowUp, setShowFollowUp]       = useState<'opened'|'not_opened'|null>(null)
   const [followUpTemplateId, setFollowUpTemplateId] = useState('')
   const [followUpLevel, setFollowUpLevel]     = useState(0)
@@ -338,7 +338,7 @@ function CampaignDetail({ campaign, templates, onBack, showToast }: any) {
   async function loadTemplates() {
     const r = await fetch('/api/templates')
     const d = await r.json()
-    setTemplates(d)
+    setAllTemplates(d)
   }
 
   async function loadRecipients() {
@@ -786,7 +786,7 @@ function CampaignDetail({ campaign, templates, onBack, showToast }: any) {
                     <label className={styles.label}>Follow-up Template</label>
                     <select className={styles.input} value={followUpTemplateId} onChange={e => setFollowUpTemplateId(e.target.value)}>
                       <option value="">Select template…</option>
-                      {templates.map((t: Template) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                      {allTemplates.map((t: Template) => <option key={t.id} value={t.id}>{t.name}</option>)}
                     </select>
                   </div>
 
