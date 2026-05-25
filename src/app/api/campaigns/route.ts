@@ -34,6 +34,16 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(campaign)
 }
 
+export async function PUT(req: NextRequest) {
+  const { id, name, templateId } = await req.json()
+  if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
+  const campaign = await prisma.campaign.update({
+    where: { id },
+    data: { ...(name && { name }), ...(templateId && { templateId }) }
+  })
+  return NextResponse.json(campaign)
+}
+
 export async function DELETE(req: NextRequest) {
   const id = req.nextUrl.searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })

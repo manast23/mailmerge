@@ -223,6 +223,7 @@ function CampaignsTab({ campaigns: initialCampaigns, templates, onRefresh, showT
   if (selected) return (
     <CampaignDetail
       campaign={selected}
+      templates={templates}
       onBack={() => { setSelected(null); onRefresh() }}
       showToast={showToast}
     />
@@ -307,7 +308,7 @@ function CampaignsTab({ campaigns: initialCampaigns, templates, onRefresh, showT
 }
 
 // ─── Campaign Detail ──────────────────────────────────────
-function CampaignDetail({ campaign, onBack, showToast }: any) {
+function CampaignDetail({ campaign, templates, onBack, showToast }: any) {
   const [recipients, setRecipients]   = useState<Recipient[]>([])
   const [loading, setLoading]         = useState(false)
   const [sending, setSending]         = useState(false)
@@ -458,6 +459,21 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
     loadRecipients()
   }
 
+  const [editing, setEditing]           = useState(false)
+  const [editName, setEditName]         = useState(campaign.name)
+  const [editTemplateId, setEditTemplateId] = useState(campaign.templateId || '')
+
+  async function saveCampaignEdit() {
+    await fetch('/api/campaigns', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: campaign.id, name: editName, templateId: editTemplateId })
+    })
+    campaign.name = editName
+    setEditing(false)
+    showToast('Campaign updated!')
+  }
+
   const pending    = recipients.filter(r => r.status === 'pending').length
   const sent       = recipients.filter(r => r.status === 'sent').length
   const opened     = recipients.filter(r => r.openedAt).length
@@ -482,10 +498,24 @@ function CampaignDetail({ campaign, onBack, showToast }: any) {
       <div className={styles.pageHeader}>
         <div style={{display:'flex',alignItems:'center',gap:12}}>
           <button className={styles.backBtn} onClick={onBack}>←</button>
-          <div>
-            <h1 className={styles.pageTitle}>{campaign.name}</h1>
-            <p className={styles.pageSubtitle}>{campaign.template?.name} · {campaign.template?.subject}</p>
-          </div>
+          {editing ? (
+            <div style={{display:'flex', gap:8, alignItems:'center'}}>
+              <input className={styles.input} value={editName} onChange={e => setEditName(e.target.value)} style={{width:200}} />
+              <select className={styles.input} value={editTemplateId} onChange={e => setEditTemplateId(e.target.value)} style={{width:160}}>
+                {templates.map((t: Template) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+              <button className={styles.btnPrimary} onClick={saveCampaignEdit}>Save</button>
+              <button className={styles.btnGhost} onClick={() => setEditing(false)}>Cancel</button>
+            </div>
+          ) : (
+            <div>
+              <div style={{display:'flex', alignItems:'center', gap:8}}>
+                <h1 className={styles.pageTitle}>{campaign.name}</h1>
+                <button className={styles.btnGhost} style={{padding:'3px 8px', fontSize:11}} onClick={() => setEditing(true)}>Edit</button>
+              </div>
+              <p className={styles.pageSubtitle}>{campaign.template?.name} · {campaign.template?.subject}</p>
+            </div>
+          )}
         </div>
         <button className={styles.refreshBtn} onClick={() => { loadRecipients(); showToast('Refreshed!', 'info') }}>
           <span className={styles.refreshIcon}>↻</span> Refresh
@@ -821,18 +851,43 @@ function ComposeTab({ templates: initialTemplates, onSaved, showToast }: any) {
   const [subject, setSubject]           = useState('')
   const [body, setBody]                 = useState('')
   const [saving, setSaving]             = useState(false)
+  const [autoSaving, setAutoSaving]     = useState(false)
   const [attachmentName, setAttachmentName] = useState('')
   const [uploading, setUploading]       = useState(false)
-  const attachRef = useRef<HTMLInputElement>(null)
+  const attachRef   = useRef<HTMLInputElement>(null)
+  const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const selectedRef = useRef<Template | null>(null)
+
+  // Keep ref in sync so debounce closure can access latest selected
+  useEffect(() => { selectedRef.current = selected }, [selected])
 
   // Sync when parent refreshes templates
   useEffect(() => { setLocalTemplates(initialTemplates || []) }, [initialTemplates])
+
+  // Auto-save 2s after user stops typing
+  function scheduleAutoSave(newName: string, newSubject: string, newBody: string) {
+    if (autoSaveRef.current) clearTimeout(autoSaveRef.current)
+    autoSaveRef.current = setTimeout(async () => {
+      const s = selectedRef.current
+      if (!s?.id || s.id.startsWith('temp_')) return
+      setAutoSaving(true)
+      await fetch('/api/templates', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: s.id, name: newName || 'Untitled', subject: newSubject, body: newBody })
+      })
+      setAutoSaving(false)
+      setLocalTemplates(prev => prev.map(t => t.id === s.id ? { ...t, name: newName || 'Untitled', subject: newSubject, body: newBody } : t))
+    }, 2000)
+  }
 
   const editor = useEditor({
     extensions: [StarterKit],
     content: body,
     onUpdate: ({ editor }: any) => {
-      setBody(editor.getHTML())
+      const html = editor.getHTML()
+      setBody(html)
+      scheduleAutoSave(name, subject, html)
     },
   })
 
@@ -967,11 +1022,11 @@ function ComposeTab({ templates: initialTemplates, onSaved, showToast }: any) {
         <div className={styles.card} style={{flex:1}}>
           <div className={styles.formGroup}>
             <label className={styles.label}>Template Name</label>
-            <input className={styles.input} value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Masters Admission Inquiry" />
+            <input className={styles.input} value={name} onChange={e => { setName(e.target.value); scheduleAutoSave(e.target.value, subject, body) }} placeholder="e.g. Masters Admission Inquiry" />
           </div>
           <div className={styles.formGroup}>
             <label className={styles.label}>Subject Line</label>
-            <input className={styles.input} value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Inquiry Regarding PhD Supervision — {{Name}}" />
+            <input className={styles.input} value={subject} onChange={e => { setSubject(e.target.value); scheduleAutoSave(name, e.target.value, body) }} placeholder="e.g. Inquiry Regarding PhD Supervision — {{Name}}" />
           </div>
           <div className={styles.formGroup}>
             <label className={styles.label}>Email Body</label>
@@ -1037,6 +1092,7 @@ function ComposeTab({ templates: initialTemplates, onSaved, showToast }: any) {
           </div>
 
           <div className={styles.formActions} style={{marginTop:16}}>
+            {autoSaving && <span style={{fontSize:11, color:'var(--text3)', marginRight:'auto', alignSelf:'center'}}>saving…</span>}
             <button className={styles.btnGhost} onClick={cancelTemplate}>Cancel</button>
             <button className={styles.btnPrimary} onClick={saveTemplate} disabled={saving}>
               {saving ? 'Saving…' : 'Save Template'}
