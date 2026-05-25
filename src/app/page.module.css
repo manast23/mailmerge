@@ -594,7 +594,7 @@ textarea.input { resize: vertical; min-height: 80px; line-height: 1.5; }
 
 /* ─── Table Container ────────────────── */
 .tableContainer {
-  height: 220px;
+  height: 295px;
   overflow-y: auto;
   overflow-x: auto;
   border-radius: var(--radius);
