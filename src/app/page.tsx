@@ -4,7 +4,7 @@ import styles from './page.module.css'
 
 // ─── Types ───────────────────────────────────────────────
 interface Template { id: string; name: string; subject: string; body: string; updatedAt: string; attachmentName?: string; attachmentUrl?: string }
-interface Campaign { id: string; name: string; status: string; template: { name: string; subject: string }; total: number; sent: number; opened: number; errors: number; createdAt: string; scheduled?: string; attachmentName?: string; attachmentUrl?: string }
+interface Campaign { id: string; name: string; status: string; template: { name: string; subject: string }; total: number; sent: number; opened: number; errors: number; createdAt: string; scheduledAt?: string; templateId?: string; attachmentName?: string; attachmentUrl?: string }
 interface Recipient { id: string; email: string; data: any; status: string; sentAt?: string; openedAt?: string; error?: string }
 
 type Tab = 'campaigns' | 'compose' | 'dashboard'
@@ -252,13 +252,17 @@ function CampaignsTab({ campaigns: initialCampaigns, templates, onRefresh, showT
           )}
           {localCampaigns.map((c: Campaign) => {
             const isActive = (selected as Campaign | null)?.id === c.id
+            const isScheduled = c.status === 'scheduled'
             return (
             <div
               key={c.id}
               className={`${styles.templateItem} ${isActive ? styles.templateItemActive : ''}`}
               onClick={() => { setSelected(c); setCreating(false) }}
             >
-              <div className={styles.templateItemName}>{c.name}</div>
+              <div className={styles.templateItemName} style={{display:'flex', alignItems:'center', gap:6}}>
+                {isScheduled && <span style={{fontSize:12}}>⏰</span>}
+                {c.name}
+              </div>
               <div className={styles.templateItemSubject} style={{display:'flex', alignItems:'center', gap:6}}>
                 <span>{c.template?.name}</span>
                 <span className={styles.badge} style={{background: statusColor[c.status] + '22', color: statusColor[c.status], marginLeft:'auto'}}>
@@ -266,8 +270,13 @@ function CampaignsTab({ campaigns: initialCampaigns, templates, onRefresh, showT
                 </span>
               </div>
               <div className={styles.templateItemDate}>
-                <span style={{marginRight:8}}>{c.sent} sent · {c.opened} opened</span>
-                {new Date(c.createdAt).toLocaleDateString('en-PK', {day:'2-digit', month:'short'})}
+                {isScheduled && c.scheduledAt ? (
+                  <span style={{color:'var(--orange)'}}>
+                    ⏰ {new Date(c.scheduledAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})} at {new Date(c.scheduledAt).toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:true})}
+                  </span>
+                ) : (
+                  <span>{c.sent} sent · {c.opened} opened · {new Date(c.createdAt).toLocaleDateString('en-PK', {day:'2-digit', month:'short'})}</span>
+                )}
               </div>
               <button className={styles.deleteBtn} onClick={e => { e.stopPropagation(); deleteCampaign(c.id) }}>✕</button>
             </div>
