@@ -547,6 +547,23 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
         </button>
       </div>
 
+      {/* Scheduled banner */}
+      {campaign.status === 'scheduled' && campaign.scheduledAt && (
+        <div style={{
+          display:'flex', alignItems:'center', gap:10,
+          padding:'10px 14px', marginBottom:16,
+          background:'#fff8ed', border:'1px solid #f5d08a',
+          borderRadius:'var(--radius)', fontSize:13, color:'#92520a'
+        }}>
+          <span style={{fontSize:16}}>⏰</span>
+          <span>
+            <strong>Scheduled</strong> — will send on{' '}
+            {new Date(campaign.scheduledAt).toLocaleDateString('en-PK',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})}{' '}
+            at {new Date(campaign.scheduledAt).toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:true})}
+          </span>
+        </div>
+      )}
+
       <div className={styles.detailGrid}>
         {/* Left — Recipients */}
         <div className={styles.detailLeft}>
