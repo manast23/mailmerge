@@ -340,6 +340,9 @@ function CampaignDetail({ campaign, templates, onBack, showToast }: any) {
   const [expandedRecipient, setExpandedRecipient]   = useState<string | null>(null)
   const [followUpScheduled, setFollowUpScheduled]   = useState(false)
   const [followUpScheduleAt, setFollowUpScheduleAt] = useState('')
+  const [editing, setEditing]                 = useState(false)
+  const [editName, setEditName]               = useState(campaign.name)
+  const [editTemplateId, setEditTemplateId]   = useState(campaign.templateId || '')
   const fileRef  = useRef<HTMLInputElement>(null)
 
   useEffect(() => { loadRecipients(); loadTemplates() }, [])
@@ -478,10 +481,6 @@ function CampaignDetail({ campaign, templates, onBack, showToast }: any) {
     setFollowUpScheduleAt('')
     loadRecipients()
   }
-
-  const [editing, setEditing]           = useState(false)
-  const [editName, setEditName]         = useState(campaign.name)
-  const [editTemplateId, setEditTemplateId] = useState(campaign.templateId || '')
 
   async function saveCampaignEdit() {
     await fetch('/api/campaigns', {
