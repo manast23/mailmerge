@@ -19,6 +19,7 @@ export default function App() {
   const [showWelcome, setShowWelcome] = useState(true)
   const sidebarExpanded = sidebarPinned || sidebarHovered
 
+  // Load data immediately — even before welcome is dismissed so it's ready instantly
   useEffect(() => { loadTemplates(); loadCampaigns() }, [])
 
   async function loadTemplates() {
@@ -193,8 +194,17 @@ function CampaignsTab({ campaigns: initialCampaigns, templates, onRefresh, showT
   const [newName, setNewName]           = useState('')
   const [newTemplateId, setNewTemplate] = useState('')
   const [selected, setSelected]         = useState<Campaign | null>(null)
+  const recipientsCache = useRef<Record<string, any[]>>({})
 
   useEffect(() => { setLocalCampaigns(initialCampaigns || []) }, [initialCampaigns])
+
+  // Prefetch recipients on hover so click is instant
+  function prefetchRecipients(campaignId: string) {
+    if (recipientsCache.current[campaignId]) return
+    fetch(`/api/recipients?campaignId=${campaignId}`)
+      .then(r => r.json())
+      .then(data => { recipientsCache.current[campaignId] = data })
+  }
 
   async function createCampaign() {
     if (!newName || !newTemplateId) return showToast('Enter name and select template', 'error')
@@ -224,6 +234,7 @@ function CampaignsTab({ campaigns: initialCampaigns, templates, onRefresh, showT
     <CampaignDetail
       campaign={selected}
       templates={templates}
+      initialRecipients={recipientsCache.current[selected.id] || null}
       onBack={() => { setSelected(null); onRefresh() }}
       showToast={showToast}
     />
@@ -258,6 +269,7 @@ function CampaignsTab({ campaigns: initialCampaigns, templates, onRefresh, showT
               key={c.id}
               className={`${styles.templateItem} ${isActive ? styles.templateItemActive : ''}`}
               onClick={() => { setSelected(c); setCreating(false) }}
+              onMouseEnter={() => prefetchRecipients(c.id)}
             >
               <div className={styles.templateItemName} style={{display:'flex', alignItems:'center', gap:6}}>
                 {isScheduled && <span style={{fontSize:12}}>⏰</span>}
@@ -317,9 +329,9 @@ function CampaignsTab({ campaigns: initialCampaigns, templates, onRefresh, showT
 }
 
 // ─── Campaign Detail ──────────────────────────────────────
-function CampaignDetail({ campaign, templates, onBack, showToast }: any) {
-  const [recipients, setRecipients]   = useState<Recipient[]>([])
-  const [loading, setLoading]         = useState(false)
+function CampaignDetail({ campaign, templates, initialRecipients, onBack, showToast }: any) {
+  const [recipients, setRecipients]   = useState<Recipient[]>(initialRecipients || [])
+  const [loading, setLoading]         = useState(!initialRecipients)
   const [sending, setSending]         = useState(false)
   const [importTab, setImportTab]     = useState<'csv'|'sheet'|'manual'>('csv')
   const [sheetUrl, setSheetUrl]       = useState('')
@@ -345,7 +357,11 @@ function CampaignDetail({ campaign, templates, onBack, showToast }: any) {
   const [editTemplateId, setEditTemplateId]   = useState(campaign.templateId || '')
   const fileRef  = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { loadRecipients(); loadTemplates() }, [])
+  useEffect(() => {
+    if (!initialRecipients) loadRecipients()
+    else if (initialRecipients.length) setColumns(Object.keys(initialRecipients[0].data || {}))
+    loadTemplates()
+  }, [])
 
   async function loadTemplates() {
     const r = await fetch('/api/templates')
@@ -354,7 +370,6 @@ function CampaignDetail({ campaign, templates, onBack, showToast }: any) {
   }
 
   async function loadRecipients() {
-    setLoading(true)
     const r = await fetch(`/api/recipients?campaignId=${campaign.id}`)
     const data = await r.json()
     setRecipients(data)
