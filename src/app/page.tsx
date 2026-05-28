@@ -547,22 +547,7 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
         </button>
       </div>
 
-      {/* Scheduled banner */}
-      {campaign.status === 'scheduled' && campaign.scheduledAt && (
-        <div style={{
-          display:'flex', alignItems:'center', gap:10,
-          padding:'10px 14px', marginBottom:16,
-          background:'#fff8ed', border:'1px solid #f5d08a',
-          borderRadius:'var(--radius)', fontSize:13, color:'#92520a'
-        }}>
-          <span style={{fontSize:16}}>⏰</span>
-          <span>
-            <strong>Scheduled</strong> — will send on{' '}
-            {new Date(campaign.scheduledAt).toLocaleDateString('en-PK',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})}{' '}
-            at {new Date(campaign.scheduledAt).toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:true})}
-          </span>
-        </div>
-      )}
+      {/* Scheduled banner removed — status shows in table */}
 
       <div className={styles.detailGrid}>
         {/* Left — Recipients */}
@@ -679,8 +664,8 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
                           <td key={c}>{(r.data as any)[c] || '—'}</td>
                         ))}
                         <td>
-                          <span className={styles.statusBadge} data-status={r.openedAt ? 'opened' : r.status}>
-                            {r.openedAt ? '✓ Opened' : r.status === 'sent' ? '✓ Sent' : r.status === 'error' ? '✗ Error' : '· Pending'}
+                          <span className={styles.statusBadge} data-status={r.openedAt ? 'opened' : r.status === 'pending' && campaign.status === 'scheduled' ? 'pending' : r.status}>
+                            {r.openedAt ? '✓ Opened' : r.status === 'sent' ? '✓ Sent' : r.status === 'error' ? '✗ Error' : campaign.status === 'scheduled' ? '⏰ Scheduled' : '· Pending'}
                           </span>
                         </td>
                         <td>{r.openedAt ? <span style={{color:'var(--green)',fontSize:11}}>{new Date(r.openedAt).toLocaleString('en-PK',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true})}</span> : <span style={{color:'var(--text3)'}}>—</span>}</td>

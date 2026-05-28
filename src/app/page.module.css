@@ -587,10 +587,11 @@ textarea.input { resize: vertical; min-height: 80px; line-height: 1.5; }
   padding: 2px 7px;
   border-radius: 20px;
 }
-.statusBadge[data-status="sent"]    { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
-.statusBadge[data-status="opened"]  { background: #dcfce7; color: #15803d; }
-.statusBadge[data-status="error"]   { background: #fee2e2; color: var(--red); }
-.statusBadge[data-status="pending"] { background: var(--bg3); color: var(--text3); border: 1px solid var(--border); }
+.statusBadge[data-status="sent"]      { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
+.statusBadge[data-status="opened"]    { background: #dcfce7; color: #15803d; }
+.statusBadge[data-status="error"]     { background: #fee2e2; color: var(--red); }
+.statusBadge[data-status="pending"]   { background: var(--bg3); color: var(--text3); border: 1px solid var(--border); }
+.statusBadge[data-status="scheduled"] { background: #fff8ed; color: #92520a; border: 1px solid #f5d08a; }
 
 /* ─── Table Container ────────────────── */
 .tableContainer {
