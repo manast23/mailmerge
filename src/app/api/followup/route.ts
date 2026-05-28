@@ -67,10 +67,12 @@ export async function POST(req: NextRequest) {
         references: recipient.messageId || undefined,
       })
 
-      await prisma.followUp.create({
-        data: { recipientId: recipient.id, templateId, status: 'sent', sentAt: new Date(), trackId, messageId: result.messageId || null, number: followUpNumber }
-      })
-      await prisma.recipient.update({ where: { id: recipient.id }, data: { followUpCount: { increment: 1 } } })
+      await prisma.$transaction([
+        prisma.followUp.create({
+          data: { recipientId: recipient.id, templateId, status: 'sent', sentAt: new Date(), trackId, messageId: result.messageId || null, number: followUpNumber }
+        }),
+        prisma.recipient.update({ where: { id: recipient.id }, data: { followUpCount: { increment: 1 } } })
+      ])
       sentCount++
     } catch (e: any) {
       await prisma.followUp.create({

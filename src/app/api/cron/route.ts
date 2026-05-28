@@ -77,14 +77,16 @@ export async function GET(req: NextRequest) {
         references: followUp.recipient.messageId || undefined,
       })
 
-      await prisma.followUp.update({
-        where: { id: followUp.id },
-        data:  { status: 'sent', sentAt: new Date(), messageId: result.messageId || null }
-      })
-      await prisma.recipient.update({
-        where: { id: followUp.recipientId },
-        data:  { followUpCount: { increment: 1 } }
-      })
+      await prisma.$transaction([
+        prisma.followUp.update({
+          where: { id: followUp.id },
+          data:  { status: 'sent', sentAt: new Date(), messageId: result.messageId || null }
+        }),
+        prisma.recipient.update({
+          where: { id: followUp.recipientId },
+          data:  { followUpCount: { increment: 1 } }
+        })
+      ])
       totalSent++
     } catch (e: any) {
       await prisma.followUp.update({ where: { id: followUp.id }, data: { status: 'error', error: e.message } })
