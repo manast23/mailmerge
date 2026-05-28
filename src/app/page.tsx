@@ -671,6 +671,7 @@ function CampaignDetail({ campaign, templates, onBack, showToast }: any) {
                             </div>
                           ) : <span style={{color:'var(--text3)', fontSize:11}}>—</span>}
                         </td>
+                      </tr>
                       {/* Expanded timeline */}
                       {expandedRecipient === r.id && (r as any).followUps?.length > 0 && (
                         <tr key={r.id + '_timeline'}>
