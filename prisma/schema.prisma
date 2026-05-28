@@ -60,9 +60,14 @@ model FollowUp {
   status      String    @default("pending")
   sentAt      DateTime?
   openedAt    DateTime?
+  scheduledAt DateTime?
   trackId     String?   @unique
   messageId   String?
-  number      Int       // 1, 2, 3...
+  number      Int
+  delayMin    Int       @default(30)
+  delayMax    Int       @default(90)
+  fromName    String?
+  fromEmail   String?
   error       String?
   createdAt   DateTime  @default(now())
 }

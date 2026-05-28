@@ -439,6 +439,15 @@ function CampaignDetail({ campaign, templates, onBack, showToast }: any) {
     loadRecipients()
   }
 
+  async function cancelFollowUp(followUpId: string, recipientId: string) {
+    await fetch(`/api/followup?id=${followUpId}`, { method: 'DELETE' })
+    setRecipients(prev => prev.map(r => r.id !== recipientId ? r : {
+      ...r,
+      followUps: (r as any).followUps?.filter((f: any) => f.id !== followUpId) || []
+    }))
+    showToast('Scheduled follow-up cancelled')
+  }
+
   async function startFollowUp() {
     if (!followUpTemplateId) return showToast('Select a template for the follow-up', 'error')
     if (!showFollowUp) return
@@ -604,6 +613,7 @@ function CampaignDetail({ campaign, templates, onBack, showToast }: any) {
                       {columns.slice(0,3).filter(c => !c.toLowerCase().includes('email')).map(c => <th key={c}>{c}</th>)}
                       <th>Status</th>
                       <th>Opened</th>
+                      <th>Follow-ups</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -643,7 +653,25 @@ function CampaignDetail({ campaign, templates, onBack, showToast }: any) {
                           </span>
                         </td>
                         <td>{r.openedAt ? <span style={{color:'var(--green)',fontSize:11}}>{new Date(r.openedAt).toLocaleString('en-PK',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true})}</span> : <span style={{color:'var(--text3)'}}>—</span>}</td>
-                      </tr>
+                        <td>
+                          {(r as any).followUps?.length > 0 ? (
+                            <div style={{display:'flex', flexDirection:'column', gap:2}}>
+                              {(r as any).followUps.map((f: any) => (
+                                <span key={f.id} style={{fontSize:10, whiteSpace:'nowrap'}}>
+                                  <span style={{fontWeight:600, color:'var(--text2)'}}>#{f.number}</span>
+                                  {' '}
+                                  {f.status === 'scheduled'
+                                    ? <span style={{color:'var(--orange)'}}>⏰ {new Date(f.scheduledAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})} {new Date(f.scheduledAt).toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:true})}</span>
+                                    : f.status === 'sent' && f.openedAt
+                                      ? <span style={{color:'var(--green)'}}>✓ Opened</span>
+                                      : f.status === 'sent'
+                                        ? <span style={{color:'var(--text3)'}}>✓ Sent</span>
+                                        : <span style={{color:'var(--red)'}}>✗ Error</span>}
+                                </span>
+                              ))}
+                            </div>
+                          ) : <span style={{color:'var(--text3)', fontSize:11}}>—</span>}
+                        </td>
                       {/* Expanded timeline */}
                       {expandedRecipient === r.id && (r as any).followUps?.length > 0 && (
                         <tr key={r.id + '_timeline'}>
@@ -659,10 +687,23 @@ function CampaignDetail({ campaign, templates, onBack, showToast }: any) {
                               {/* Follow-ups */}
                               {(r as any).followUps.map((f: any) => (
                                 <div key={f.id} style={{display:'flex', alignItems:'center', gap:12, padding:'6px 0', borderBottom:'1px dashed var(--border)', fontSize:12}}>
-                                  <span style={{width:20, height:20, borderRadius:'50%', background: f.openedAt ? 'var(--green)' : 'var(--border2)', color: f.openedAt ? 'white' : 'var(--text2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, flexShrink:0}}>#{f.number}</span>
+                                  <span style={{width:20, height:20, borderRadius:'50%', background: f.openedAt ? 'var(--green)' : f.status === 'scheduled' ? 'var(--orange)' : f.status === 'error' ? 'var(--red)' : 'var(--border2)', color: f.openedAt || f.status === 'scheduled' || f.status === 'error' ? 'white' : 'var(--text2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, flexShrink:0}}>#{f.number}</span>
                                   <span style={{color:'var(--text2)', flex:1}}>{f.template?.name || 'Follow-up'}</span>
-                                  <span style={{color:'var(--text3)'}}>{f.sentAt ? new Date(f.sentAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'}) : '—'}</span>
-                                  <span className={styles.statusBadge} data-status={f.openedAt ? 'opened' : f.status}>{f.openedAt ? '✓ Opened' : f.status === 'sent' ? '✓ Sent' : f.status === 'error' ? '✗ Error' : '· Pending'}</span>
+                                  <span style={{color:'var(--text3)'}}>
+                                    {f.status === 'scheduled'
+                                      ? `⏰ ${new Date(f.scheduledAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})} ${new Date(f.scheduledAt).toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:true})}`
+                                      : f.sentAt ? new Date(f.sentAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'}) : '—'}
+                                  </span>
+                                  <span className={styles.statusBadge} data-status={f.openedAt ? 'opened' : f.status === 'scheduled' ? 'pending' : f.status}>
+                                    {f.openedAt ? '✓ Opened' : f.status === 'scheduled' ? '⏰ Scheduled' : f.status === 'sent' ? '✓ Sent' : f.status === 'error' ? '✗ Error' : '· Pending'}
+                                  </span>
+                                  {f.status === 'scheduled' && (
+                                    <button
+                                      onClick={e => { e.stopPropagation(); cancelFollowUp(f.id, r.id) }}
+                                      style={{background:'none', border:'none', color:'var(--red)', cursor:'pointer', fontSize:11, padding:'0 4px', flexShrink:0}}
+                                      title="Cancel scheduled follow-up"
+                                    >✕</button>
+                                  )}
                                 </div>
                               ))}
                             </div>

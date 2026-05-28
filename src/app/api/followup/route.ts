@@ -13,12 +13,10 @@ export async function POST(req: NextRequest) {
   const template = await prisma.template.findUnique({ where: { id: templateId } })
   if (!template) return NextResponse.json({ error: 'Template not found' }, { status: 404 })
 
-  // Filter targets
   const whereFilter: any = selectedIds?.length
     ? { id: { in: selectedIds }, campaignId, status: 'sent' }
     : {
-        campaignId,
-        status: 'sent',
+        campaignId, status: 'sent',
         followUpCount: followUpLevel,
         ...(followUpType === 'opened'     ? { openedAt: { not: null } } : {}),
         ...(followUpType === 'not_opened' ? { openedAt: null }          : {}),
@@ -27,47 +25,42 @@ export async function POST(req: NextRequest) {
   const targets = await prisma.recipient.findMany({ where: whereFilter })
   if (!targets.length) return NextResponse.json({ error: 'No recipients match this filter' }, { status: 400 })
 
-  // If scheduled, create a campaign record for cron to pick up
+  const followUpNumber = followUpLevel + 1
+
+  // Scheduled — save as FollowUp records with status 'scheduled'
   if (scheduledAt) {
-    const followUpCampaign = await prisma.campaign.create({
-      data: {
-        name: `Follow-up #${followUpLevel + 1} — ${followUpType === 'opened' ? 'Opened' : 'Not Opened'}`,
+    await prisma.followUp.createMany({
+      data: targets.map(r => ({
+        recipientId: r.id,
         templateId,
-        status: 'scheduled',
+        status:      'scheduled',
         scheduledAt: new Date(scheduledAt),
-        recipients: {
-          create: targets.map(r => ({
-            email: r.email,
-            data: r.data as any,
-            status: 'pending',
-          }))
-        }
-      }
+        number:      followUpNumber,
+        delayMin,
+        delayMax,
+        fromName:    fromName || null,
+        fromEmail:   fromEmail || null,
+        trackId:     randomUUID(),
+      }))
     })
-    return NextResponse.json({ success: true, scheduled: true, campaignId: followUpCampaign.id })
+    return NextResponse.json({ success: true, scheduled: true, count: targets.length })
   }
 
-  // Otherwise send immediately
+  // Send immediately
   let sentCount = 0
   const errors: string[] = []
-  const followUpNumber = followUpLevel + 1
 
   for (let i = 0; i < targets.length; i++) {
     const recipient = targets[i]
     const trackId = randomUUID()
 
     try {
-      const data = recipient.data as Record<string, string>
+      const data    = recipient.data as Record<string, string>
       const subject = replacePlaceholders(template.subject, data)
       const html    = replacePlaceholders(template.body, data).replace(/\n/g, '<br>')
 
       const result = await sendEmail({
-        to: recipient.email,
-        subject,
-        html,
-        trackId,
-        fromName,
-        fromEmail,
+        to: recipient.email, subject, html, trackId, fromName, fromEmail,
         attachmentUrl:  template.attachmentUrl  || undefined,
         attachmentName: template.attachmentName || undefined,
         inReplyTo:  recipient.messageId || undefined,
@@ -75,33 +68,13 @@ export async function POST(req: NextRequest) {
       })
 
       await prisma.followUp.create({
-        data: {
-          recipientId: recipient.id,
-          templateId,
-          status:    'sent',
-          sentAt:    new Date(),
-          trackId,
-          messageId: result.messageId || null,
-          number:    followUpNumber,
-        }
+        data: { recipientId: recipient.id, templateId, status: 'sent', sentAt: new Date(), trackId, messageId: result.messageId || null, number: followUpNumber }
       })
-
-      await prisma.recipient.update({
-        where: { id: recipient.id },
-        data:  { followUpCount: { increment: 1 } }
-      })
-
+      await prisma.recipient.update({ where: { id: recipient.id }, data: { followUpCount: { increment: 1 } } })
       sentCount++
     } catch (e: any) {
       await prisma.followUp.create({
-        data: {
-          recipientId: recipient.id,
-          templateId,
-          status: 'error',
-          error:  e.message,
-          trackId,
-          number: followUpNumber,
-        }
+        data: { recipientId: recipient.id, templateId, status: 'error', error: e.message, trackId, number: followUpNumber }
       })
       errors.push(`${recipient.email}: ${e.message}`)
     }
@@ -110,4 +83,12 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ success: true, sentCount, errors })
+}
+
+// Cancel a scheduled follow-up
+export async function DELETE(req: NextRequest) {
+  const id = req.nextUrl.searchParams.get('id')
+  if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
+  await prisma.followUp.delete({ where: { id } })
+  return NextResponse.json({ success: true })
 }
