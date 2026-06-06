@@ -17,6 +17,14 @@ export async function GET(req: NextRequest) {
     include: { template: true, recipients: { where: { status: 'pending' } } }
   })
 
+  // Mark as sending immediately to prevent double-send if cron overlaps
+  if (campaigns.length > 0) {
+    await prisma.campaign.updateMany({
+      where: { id: { in: campaigns.map(c => c.id) } },
+      data: { status: 'sending' }
+    })
+  }
+
   for (const campaign of campaigns) {
     if (!campaign.recipients.length) {
       await prisma.campaign.update({ where: { id: campaign.id }, data: { status: 'done' } })
@@ -58,11 +66,23 @@ export async function GET(req: NextRequest) {
     include: { recipient: true, template: true }
   })
 
+  // Mark all as 'sending' first to prevent double-send if cron overlaps
+  if (scheduledFollowUps.length > 0) {
+    await prisma.followUp.updateMany({
+      where: { id: { in: scheduledFollowUps.map(f => f.id) } },
+      data: { status: 'sending' }
+    })
+  }
+
   for (let i = 0; i < scheduledFollowUps.length; i++) {
     const followUp = scheduledFollowUps[i]
     try {
       const data    = followUp.recipient.data as Record<string, string>
-      const subject = replacePlaceholders(followUp.template.subject, data)
+      const originalSubject = data._subject
+      const followUpSubject = replacePlaceholders(followUp.template.subject, data)
+      const subject = followUp.recipient.messageId && originalSubject
+        ? `Re: ${originalSubject}`
+        : followUpSubject
       const html    = replacePlaceholders(followUp.template.body, data).replace(/\n/g, '<br>')
 
       const result = await sendEmail({
