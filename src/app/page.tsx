@@ -228,6 +228,18 @@ function CampaignsTab({ campaigns: initialCampaigns, templates, onRefresh, showT
     fetch(`/api/campaigns?id=${id}`, { method: 'DELETE' })
   }
 
+  async function duplicateCampaign(c: Campaign) {
+    const r = await fetch('/api/campaigns/duplicate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ campaignId: c.id })
+    })
+    const newCampaign = await r.json()
+    setLocalCampaigns(prev => [newCampaign, ...prev])
+    setSelected(newCampaign)
+    showToast('Campaign duplicated!')
+  }
+
   const statusColor: any = { draft: 'var(--text3)', sending: 'var(--orange)', done: 'var(--green)', scheduled: 'var(--purple)' }
 
   if (selected) return (
@@ -290,6 +302,7 @@ function CampaignsTab({ campaigns: initialCampaigns, templates, onRefresh, showT
                   <span>{c.sent} sent · {c.opened} opened · {new Date(c.createdAt).toLocaleDateString('en-PK', {day:'2-digit', month:'short'})}</span>
                 )}
               </div>
+              <button className={styles.deleteBtn} style={{right:28}} onClick={e => { e.stopPropagation(); duplicateCampaign(c) }} title="Duplicate">⧉</button>
               <button className={styles.deleteBtn} onClick={e => { e.stopPropagation(); deleteCampaign(c.id) }}>✕</button>
             </div>
             )
@@ -1023,6 +1036,18 @@ function ComposeTab({ templates: initialTemplates, onSaved, showToast }: any) {
     fetch(`/api/templates?id=${id}`, { method: 'DELETE' })
   }
 
+  async function duplicateTemplate(t: Template) {
+    const r = await fetch('/api/templates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: `Copy of ${t.name}`, subject: t.subject, body: t.body })
+    })
+    const newTemplate = await r.json()
+    setLocalTemplates(prev => [newTemplate, ...prev])
+    editTemplate(newTemplate)
+    showToast('Template duplicated!')
+  }
+
   function detectPlaceholders() {
     const all = subject + ' ' + body
     const matches = all.match(/\{\{([^}]+)\}\}/g) || []
@@ -1092,6 +1117,7 @@ function ComposeTab({ templates: initialTemplates, onSaved, showToast }: any) {
                 {selected?.id === t.id ? (subject || 'No subject') : (t.subject || 'No subject')}
               </div>
               <div className={styles.templateItemDate}>{new Date(t.updatedAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})}</div>
+              <button className={styles.deleteBtn} style={{right:28}} onClick={e => { e.stopPropagation(); duplicateTemplate(t) }} title="Duplicate">⧉</button>
               <button className={styles.deleteBtn} onClick={e => { e.stopPropagation(); deleteTemplate(t.id) }}>✕</button>
             </div>
           ))}
