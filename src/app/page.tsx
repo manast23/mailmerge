@@ -7,10 +7,10 @@ interface Template { id: string; name: string; subject: string; body: string; up
 interface Campaign { id: string; name: string; status: string; template: { name: string; subject: string }; total: number; sent: number; opened: number; errors: number; createdAt: string; scheduledAt?: string; templateId?: string; attachmentName?: string; attachmentUrl?: string }
 interface Recipient { id: string; email: string; data: any; status: string; sentAt?: string; openedAt?: string; error?: string }
 
-type Tab = 'campaigns' | 'compose' | 'dashboard'
+type Tab = 'home' | 'campaigns' | 'compose' | 'dashboard'
 
 export default function App() {
-  const [tab, setTab]               = useState<Tab>('campaigns')
+  const [tab, setTab]               = useState<Tab>('home')
   const [templates, setTemplates]   = useState<Template[]>([])
   const [campaigns, setCampaigns]   = useState<Campaign[]>([])
   const [toast, setToast]           = useState<{msg: string, type: 'success'|'error'|'info'} | null>(null)
@@ -120,6 +120,9 @@ export default function App() {
 
         <nav className={styles.nav}>
           {([
+            ['home', (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            ), 'Home'],
             ['campaigns', (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
             ), 'Campaigns'],
@@ -156,6 +159,9 @@ export default function App() {
 
       {/* Main */}
       <main className={styles.main}>
+        {tab === 'home' && (
+          <HomeTab campaigns={campaigns} setTab={setTab} />
+        )}
         {tab === 'campaigns' && (
           <CampaignsTab
             campaigns={campaigns}
@@ -183,6 +189,97 @@ export default function App() {
         </div>
       )}
       </>)}
+    </div>
+  )
+}
+
+// ─── Home Tab ─────────────────────────────────────────────
+function HomeTab({ campaigns, setTab }: any) {
+  const totalSent    = campaigns.reduce((sum: number, c: Campaign) => sum + (c.sent || 0), 0)
+  const totalOpened  = campaigns.reduce((sum: number, c: Campaign) => sum + (c.opened || 0), 0)
+  const openRate     = totalSent ? Math.round((totalOpened / totalSent) * 100) : 0
+  const totalCampaigns = campaigns.length
+  const recentCampaigns = [...campaigns].sort((a: Campaign, b: Campaign) =>
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  ).slice(0, 5)
+  const statusColor: any = { draft: 'var(--text3)', sending: 'var(--orange)', done: 'var(--green)', scheduled: 'var(--purple)' }
+
+  return (
+    <div className={styles.tabContent}>
+      <div className={styles.pageHeader}>
+        <div>
+          <h1 className={styles.pageTitle}>Home</h1>
+          <p className={styles.pageSubtitle}>Overview of your outreach activity</p>
+        </div>
+      </div>
+
+      {/* Stat cards */}
+      <div className={styles.statCards} style={{marginBottom:20}}>
+        {[
+          { label: 'Total Campaigns', value: totalCampaigns, accent: '#111112' },
+          { label: 'Total Sent',      value: totalSent,      accent: '#3b82f6' },
+          { label: 'Total Opened',    value: totalOpened,    accent: '#16a34a' },
+          { label: 'Avg Open Rate',   value: openRate + '%', accent: '#7c3aed' },
+        ].map(s => (
+          <div key={s.label} className={styles.statCard}>
+            <div className={styles.statAccent} style={{background: s.accent}}></div>
+            <div className={styles.statNum}>{s.value}</div>
+            <div className={styles.statLabel}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Quick actions */}
+      <div style={{display:'flex', gap:10, marginBottom:20}}>
+        <button className={styles.btnPrimary} onClick={() => setTab('campaigns')}>+ New Campaign</button>
+        <button className={styles.btnGhost} onClick={() => setTab('compose')}>+ New Template</button>
+        <button className={styles.btnGhost} onClick={() => setTab('dashboard')}>View Analytics</button>
+      </div>
+
+      {/* Recent campaigns */}
+      <div className={styles.card}>
+        <div className={styles.cardHeader}>
+          <div className={styles.cardTitle}>Recent Campaigns</div>
+          <button className={styles.btnGhost} style={{fontSize:11,padding:'3px 8px'}} onClick={() => setTab('campaigns')}>View all</button>
+        </div>
+        {!recentCampaigns.length ? (
+          <div className={styles.empty} style={{padding:'30px 20px'}}>
+            <div className={styles.emptyIcon}>◈</div>
+            <div className={styles.emptyTitle}>No campaigns yet</div>
+            <div className={styles.emptyText}>Create your first campaign to get started</div>
+          </div>
+        ) : (
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Campaign</th>
+                <th>Template</th>
+                <th>Sent</th>
+                <th>Opened</th>
+                <th>Open Rate</th>
+                <th>Status</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentCampaigns.map((c: Campaign) => {
+                const rate = c.sent ? Math.round((c.opened / c.sent) * 100) : 0
+                return (
+                  <tr key={c.id} style={{cursor:'pointer'}} onClick={() => setTab('campaigns')}>
+                    <td className={styles.emailCell}>{c.name}</td>
+                    <td>{c.template?.name}</td>
+                    <td>{c.sent}</td>
+                    <td>{c.opened}</td>
+                    <td>{c.sent ? `${rate}%` : '—'}</td>
+                    <td><span className={styles.badge} style={{background: statusColor[c.status] + '22', color: statusColor[c.status]}}>{c.status}</span></td>
+                    <td className={styles.dateCell}>{new Date(c.createdAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short',year:'numeric'})}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   )
 }
