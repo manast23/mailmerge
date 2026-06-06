@@ -56,8 +56,15 @@ export async function POST(req: NextRequest) {
 
     try {
       const data    = recipient.data as Record<string, string>
-      const subject = replacePlaceholders(template.subject, data)
       const html    = replacePlaceholders(template.body, data).replace(/\n/g, '<br>')
+
+      // Gmail threads by subject — use Re: + original subject for threading
+      // Original subject is stored in recipient data as _subject after first send
+      const originalSubject = (recipient.data as any)._subject
+      const followUpSubject = replacePlaceholders(template.subject, data)
+      const subject = recipient.messageId && originalSubject
+        ? `Re: ${originalSubject}`
+        : followUpSubject
 
       const result = await sendEmail({
         to: recipient.email, subject, html, trackId, fromName, fromEmail,

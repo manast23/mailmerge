@@ -51,7 +51,12 @@ export async function POST(req: NextRequest) {
       })
       await prisma.recipient.update({
         where: { id: recipient.id },
-        data:  { status: 'sent', sentAt: new Date(), trackId, messageId: result.messageId || null }
+        data:  {
+          status: 'sent', sentAt: new Date(), trackId,
+          messageId: result.messageId || null,
+          // Store resolved subject for follow-up threading
+          data: { ...(recipient.data as object), _subject: subject }
+        }
       })
       sentCount++
     } catch (e: any) {
