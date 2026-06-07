@@ -1166,135 +1166,126 @@ function ComposeTab({ templates: initialTemplates, onSaved, showToast }: any) {
 
   return (
     <div className={styles.tabContent}>
-      <div className={styles.pageHeader}>
-        <div>
-          <h1 className={styles.pageTitle}>Templates</h1>
-          <p className={styles.pageSubtitle}>Write reusable email templates with {'{{'} placeholders {'}}'}</p>
-        </div>
-        <button className={styles.btnPrimary} onClick={newTemplate}>+ New Template</button>
-      </div>
-
-      <div className={styles.templatePageGrid}>
-        {/* Template card grid — left */}
-        <div>
-          {!localTemplates.length ? (
-            <div className={styles.empty}>
-              <div className={styles.emptyIcon}>✦</div>
-              <div className={styles.emptyTitle}>No templates yet</div>
-              <div className={styles.emptyText} style={{marginBottom:16}}>Create your first template</div>
-              <button className={styles.btnPrimary} onClick={newTemplate}>+ New Template</button>
-            </div>
-          ) : (
-            <div className={styles.cardGrid}>
-              {localTemplates.map((t: Template) => (
-                <div key={t.id} className={`${styles.gridCard} ${selected?.id === t.id ? styles.gridCardActive : ''}`} onClick={() => editTemplate(t)}>
-                  <div className={styles.gridCardAccent} style={{background:'var(--accent)'}}></div>
-                  <div className={styles.gridCardName}>{selected?.id === t.id ? (name || 'Untitled') : (t.name || 'Untitled')}</div>
-                  <div className={styles.gridCardSub}>{selected?.id === t.id ? (subject || 'No subject') : (t.subject || 'No subject')}</div>
-                  <div className={styles.gridCardMeta}>
-                    {(t as any).attachmentName && <span className={styles.gridCardStat}>📎 {(t as any).attachmentName}</span>}
-                    <span className={styles.gridCardDate}>{new Date(t.updatedAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})}</span>
-                  </div>
-                  <div className={styles.gridCardActions}>
-                    <button className={styles.gridActionBtn} onClick={e => { e.stopPropagation(); duplicateTemplate(t) }} title="Duplicate">⧉</button>
-                    <button className={styles.gridActionBtn} onClick={e => { e.stopPropagation(); deleteTemplate(t.id) }} title="Delete" style={{color:'var(--red)'}}>✕</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Editor — right, only when template selected */}
-        {selected && (
-        <div className={styles.card}>
-        {selected ? (
-        <div className={styles.card} style={{flex:1}}>
-          <div className={styles.formGroup}>
-            <label className={styles.label}>Template Name</label>
-            <input className={styles.input} value={name} onChange={e => { setName(e.target.value); scheduleAutoSave(e.target.value, subject, body) }} placeholder="e.g. Masters Admission Inquiry" />
-          </div>
-          <div className={styles.formGroup}>
-            <label className={styles.label}>Subject Line</label>
-            <input className={styles.input} value={subject} onChange={e => { setSubject(e.target.value); scheduleAutoSave(name, e.target.value, body) }} placeholder="e.g. Inquiry Regarding PhD Supervision — {{Name}}" />
-          </div>
-          <div className={styles.formGroup}>
-            <label className={styles.label}>Email Body</label>
-            {/* Toolbar */}
-            <div style={{display:'flex',gap:4,padding:'6px 8px',background:'var(--bg3)',border:'1.5px solid var(--border)',borderBottom:'none',borderRadius:'var(--radius) var(--radius) 0 0'}}>
-              {[
-                { label: 'B', action: () => editor?.chain().focus().toggleBold().run(), active: editor?.isActive('bold'), style: {fontWeight:'bold'} },
-                { label: 'I', action: () => editor?.chain().focus().toggleItalic().run(), active: editor?.isActive('italic'), style: {fontStyle:'italic'} },
-                { label: 'U', action: () => editor?.chain().focus().toggleStrike().run(), active: editor?.isActive('strike'), style: {textDecoration:'underline'} },
-              ].map(btn => (
-                <button
-                  key={btn.label}
-                  onClick={btn.action}
-                  style={{
-                    padding:'3px 8px',
-                    border:'1px solid var(--border)',
-                    borderRadius:4,
-                    background: btn.active ? 'var(--accent)' : 'var(--bg2)',
-                    color: btn.active ? 'white' : 'var(--text)',
-                    cursor:'pointer',
-                    fontSize:13,
-                    ...btn.style
-                  }}
-                >{btn.label}</button>
-              ))}
-            </div>
-            {/* Editor */}
-            <div style={{border:'1.5px solid var(--border)',borderRadius:'0 0 var(--radius) var(--radius)',background:'var(--bg3)',minHeight:280,padding:'10px 12px',fontSize:13,color:'var(--text)',lineHeight:1.6,cursor:'text'}} onClick={() => editor?.commands.focus()}>
-              <EditorContent editor={editor} />
+      {/* Editor view — full page when template selected */}
+      {selected ? (
+        <>
+        <div className={styles.pageHeader}>
+          <div style={{display:'flex', alignItems:'center', gap:12}}>
+            <button className={styles.backBtn} onClick={cancelTemplate}>←</button>
+            <div>
+              <h1 className={styles.pageTitle}>{name || 'Untitled Template'}</h1>
+              <p className={styles.pageSubtitle}>{subject || 'No subject'}</p>
             </div>
           </div>
-
-          {placeholders.length > 0 && (
-            <div className={styles.phPanel}>
-              <div className={styles.phLabel}>Detected placeholders</div>
-              <div className={styles.phChips}>
-                {placeholders.map(p => (
-                  <span key={p} className={styles.phChip}>{'{{'}{p}{'}}'}</span>
-                ))}
-              </div>
-              <div className={styles.hint}>These will be replaced with data from your recipient list</div>
-            </div>
-          )}
-
-          {/* Attachment */}
-          <div className={styles.formGroup} style={{marginTop:12}}>
-            <label className={styles.label}>Attachment (CV, Documents)</label>
-            <input ref={attachRef} type="file" style={{display:'none'}} accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" onChange={e => { if(e.target.files?.[0]) uploadAttachment(e.target.files[0]) }} />
-            {attachmentName ? (
-              <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',background:'var(--bg3)',borderRadius:'var(--radius)',border:'1px solid var(--border)'}}>
-                <span style={{fontSize:16}}>📎</span>
-                <span style={{fontSize:12,color:'var(--text)',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{attachmentName}</span>
-                <button onClick={removeAttachment} style={{background:'none',border:'none',color:'var(--red)',cursor:'pointer',fontSize:14,padding:'0 4px'}}>✕</button>
-              </div>
-            ) : (
-              <div>
-                <button className={styles.btnGhost} style={{width:'100%'}} onClick={() => attachRef.current?.click()} disabled={uploading}>
-                  {uploading ? 'Uploading…' : '📎 Attach File'}
-                </button>
-                <div className={styles.hint}>PDF, Word, Excel, or image — sent with every email using this template</div>
-              </div>
-            )}
-          </div>
-
-          <div className={styles.formActions} style={{marginTop:16}}>
-            {autoSaving && <span style={{fontSize:11, color:'var(--text3)', marginRight:'auto', alignSelf:'center'}}>saving…</span>}
-            <button className={styles.btnGhost} onClick={cancelTemplate}>Cancel</button>
+          <div style={{display:'flex', gap:8, alignItems:'center'}}>
+            {autoSaving && <span style={{fontSize:11, color:'var(--text3)'}}>saving…</span>}
             <button className={styles.btnPrimary} onClick={saveTemplate} disabled={saving}>
               {saving ? 'Saving…' : 'Save Template'}
             </button>
           </div>
         </div>
+
+        <div style={{display:'grid', gridTemplateColumns:'1fr 280px', gap:16, alignItems:'start'}}>
+          <div className={styles.card}>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Template Name</label>
+              <input className={styles.input} value={name} onChange={e => { setName(e.target.value); scheduleAutoSave(e.target.value, subject, body) }} placeholder="e.g. Masters Admission Inquiry" />
+            </div>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Subject Line</label>
+              <input className={styles.input} value={subject} onChange={e => { setSubject(e.target.value); scheduleAutoSave(name, e.target.value, body) }} placeholder="e.g. Inquiry Regarding PhD Supervision — {{Name}}" />
+            </div>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Email Body</label>
+              <div style={{display:'flex',gap:4,padding:'6px 8px',background:'var(--bg3)',border:'1.5px solid var(--border)',borderBottom:'none',borderRadius:'var(--radius) var(--radius) 0 0'}}>
+                {[
+                  { label: 'B', action: () => editor?.chain().focus().toggleBold().run(), active: editor?.isActive('bold'), style: {fontWeight:'bold'} },
+                  { label: 'I', action: () => editor?.chain().focus().toggleItalic().run(), active: editor?.isActive('italic'), style: {fontStyle:'italic'} },
+                  { label: 'U', action: () => editor?.chain().focus().toggleStrike().run(), active: editor?.isActive('strike'), style: {textDecoration:'underline'} },
+                ].map(btn => (
+                  <button key={btn.label} onClick={btn.action} style={{padding:'3px 8px',border:'1px solid var(--border)',borderRadius:4,background: btn.active ? 'var(--accent)' : 'var(--bg2)',color: btn.active ? 'white' : 'var(--text)',cursor:'pointer',fontSize:13,...btn.style}}>{btn.label}</button>
+                ))}
+              </div>
+              <div style={{border:'1.5px solid var(--border)',borderRadius:'0 0 var(--radius) var(--radius)',background:'var(--bg3)',minHeight:280,padding:'10px 12px',fontSize:13,color:'var(--text)',lineHeight:1.6,cursor:'text'}} onClick={() => editor?.commands.focus()}>
+                <EditorContent editor={editor} />
+              </div>
+            </div>
+          </div>
+
+          <div style={{display:'flex', flexDirection:'column', gap:12}}>
+            {/* Placeholders */}
+            {placeholders.length > 0 && (
+              <div className={styles.card}>
+                <div className={styles.phLabel}>Detected placeholders</div>
+                <div className={styles.phChips}>
+                  {placeholders.map((p: string) => <span key={p} className={styles.phChip}>{'{{'}{p}{'}}'}</span>)}
+                </div>
+                <div className={styles.hint}>Replaced with recipient data on send</div>
+              </div>
+            )}
+
+            {/* Attachment */}
+            <div className={styles.card}>
+              <label className={styles.label}>Attachment</label>
+              <input ref={attachRef} type="file" style={{display:'none'}} accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" onChange={e => { if(e.target.files?.[0]) uploadAttachment(e.target.files[0]) }} />
+              {attachmentName ? (
+                <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',background:'var(--bg3)',borderRadius:'var(--radius)',border:'1px solid var(--border)'}}>
+                  <span style={{fontSize:16}}>📎</span>
+                  <span style={{fontSize:12,color:'var(--text)',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{attachmentName}</span>
+                  <button onClick={removeAttachment} style={{background:'none',border:'none',color:'var(--red)',cursor:'pointer',fontSize:14,padding:'0 4px'}}>✕</button>
+                </div>
+              ) : (
+                <button className={styles.btnGhost} style={{width:'100%'}} onClick={() => attachRef.current?.click()} disabled={uploading}>
+                  {uploading ? 'Uploading…' : '📎 Attach File'}
+                </button>
+              )}
+              <div className={styles.hint} style={{marginTop:6}}>PDF, Word, Excel, or image</div>
+            </div>
+          </div>
+        </div>
+        </>
+      ) : (
+        /* Card grid view */
+        <>
+        <div className={styles.pageHeader}>
+          <div>
+            <h1 className={styles.pageTitle}>Templates</h1>
+            <p className={styles.pageSubtitle}>Write reusable email templates with {'{{'} placeholders {'}}'}</p>
+          </div>
+          <button className={styles.btnPrimary} onClick={newTemplate}>+ New Template</button>
+        </div>
+
+        {!localTemplates.length ? (
+          <div className={styles.empty}>
+            <div className={styles.emptyIcon}>✦</div>
+            <div className={styles.emptyTitle}>No templates yet</div>
+            <div className={styles.emptyText} style={{marginBottom:16}}>Create your first template</div>
+            <button className={styles.btnPrimary} onClick={newTemplate}>+ New Template</button>
+          </div>
+        ) : (
+          <div className={styles.cardGrid}>
+            {localTemplates.map((t: Template) => (
+              <div key={t.id} className={styles.gridCard} onClick={() => editTemplate(t)}>
+                <div className={styles.gridCardAccent} style={{background:'var(--accent)'}}></div>
+                <div className={styles.gridCardName}>{t.name || 'Untitled'}</div>
+                <div className={styles.gridCardSub}>{t.subject || 'No subject'}</div>
+                <div className={styles.gridCardMeta}>
+                  {(t as any).attachmentName && <span className={styles.gridCardStat}>📎 {(t as any).attachmentName}</span>}
+                  <span className={styles.gridCardDate}>{new Date(t.updatedAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})}</span>
+                </div>
+                <div className={styles.gridCardActions}>
+                  <button className={styles.gridActionBtn} onClick={e => { e.stopPropagation(); duplicateTemplate(t) }} title="Duplicate">⧉</button>
+                  <button className={styles.gridActionBtn} onClick={e => { e.stopPropagation(); deleteTemplate(t.id) }} title="Delete" style={{color:'var(--red)'}}>✕</button>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
-      </div>
+        </>
+      )}
     </div>
   )
 }
-
 // ─── Dashboard Tab ────────────────────────────────────────
 function DashboardTab({ campaigns, showToast }: any) {
   const [campaignId, setCampaignId] = useState<string>('')
