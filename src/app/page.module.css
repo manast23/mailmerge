@@ -163,6 +163,8 @@
   margin-left: 220px;
   width: calc(100vw - 220px);
   transition: margin-left 0.22s cubic-bezier(0.4, 0, 0.2, 1), width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  justify-content: center;
 }
 
 .mainCollapsed {
@@ -173,11 +175,11 @@
 .tabContent {
   padding: 32px 36px;
   width: 100%;
-  max-width: 1160px;
+  max-width: 960px;
   height: 100vh;
   overflow-y: auto;
   box-sizing: border-box;
-  margin: 0 auto;
+  flex-shrink: 0;
 }
 
 .pageHeader {
