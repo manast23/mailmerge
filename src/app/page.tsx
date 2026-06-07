@@ -158,7 +158,7 @@ export default function App() {
       </aside>
 
       {/* Main */}
-      <main className={styles.main}>
+      <main className={`${styles.main} ${!sidebarExpanded ? styles.mainCollapsed : ''}`}>
         {tab === 'home' && (
           <HomeTab campaigns={campaigns} setTab={setTab} />
         )}
@@ -356,84 +356,67 @@ function CampaignsTab({ campaigns: initialCampaigns, templates, onRefresh, showT
           <h1 className={styles.pageTitle}>Campaigns</h1>
           <p className={styles.pageSubtitle}>Manage and send your mail merge campaigns</p>
         </div>
-        <button className={styles.refreshBtn} onClick={() => { onRefresh(); showToast('Refreshed!', 'info') }}>
-          <span className={styles.refreshIcon}>↻</span> Refresh
-        </button>
+        <div style={{display:'flex', gap:8}}>
+          <button className={styles.refreshBtn} onClick={() => { onRefresh(); showToast('Refreshed!', 'info') }}>
+            <span className={styles.refreshIcon}>↻</span> Refresh
+          </button>
+          <button className={styles.btnPrimary} onClick={() => setCreating(true)}>+ New Campaign</button>
+        </div>
       </div>
 
-      <div className={styles.composeGrid}>
-        {/* Campaign list */}
-        <div className={styles.templateList}>
-          {!localCampaigns.length && (
-            <div className={styles.empty} style={{padding:'30px 20px'}}>
-              <div className={styles.emptyIcon} style={{fontSize:24}}>◈</div>
-              <div className={styles.emptyText}>No campaigns yet</div>
-            </div>
-          )}
+      {creating && (
+        <div className={styles.card} style={{marginBottom:16, maxWidth:480}}>
+          <div className={styles.cardTitle}>New Campaign</div>
+          <div className={styles.formGroup}>
+            <label className={styles.label}>Campaign Name</label>
+            <input className={styles.input} value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. Prof Outreach Jan 2025" autoFocus />
+          </div>
+          <div className={styles.formGroup}>
+            <label className={styles.label}>Template</label>
+            <select className={styles.input} value={newTemplateId} onChange={e => setNewTemplate(e.target.value)}>
+              <option value="">Select template…</option>
+              {templates.map((t: Template) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          </div>
+          <div className={styles.formActions}>
+            <button className={styles.btnGhost} onClick={() => setCreating(false)}>Cancel</button>
+            <button className={styles.btnPrimary} onClick={createCampaign}>Create Campaign</button>
+          </div>
+        </div>
+      )}
+
+      {!localCampaigns.length ? (
+        <div className={styles.empty}>
+          <div className={styles.emptyIcon}>◈</div>
+          <div className={styles.emptyTitle}>No campaigns yet</div>
+          <div className={styles.emptyText} style={{marginBottom:16}}>Create your first campaign to get started</div>
+          <button className={styles.btnPrimary} onClick={() => setCreating(true)}>+ New Campaign</button>
+        </div>
+      ) : (
+        <div className={styles.cardGrid}>
           {localCampaigns.map((c: Campaign) => {
-            const isActive = (selected as Campaign | null)?.id === c.id
             const isScheduled = c.status === 'scheduled'
+            const accentColor: any = { draft: 'var(--border2)', sending: 'var(--orange)', done: 'var(--text)', scheduled: 'var(--orange)' }
             return (
-            <div
-              key={c.id}
-              className={`${styles.templateItem} ${isActive ? styles.templateItemActive : ''}`}
-              onClick={() => { setSelected(c); setCreating(false) }}
-              onMouseEnter={() => prefetchRecipients(c.id)}
-            >
-              <div className={styles.templateItemName} style={{display:'flex', alignItems:'center', gap:6}}>
-                {isScheduled && <span style={{fontSize:12}}>⏰</span>}
-                {c.name}
+              <div key={c.id} className={styles.gridCard} onClick={() => { setSelected(c); setCreating(false) }} onMouseEnter={() => prefetchRecipients(c.id)}>
+                <div className={styles.gridCardAccent} style={{background: accentColor[c.status]}}></div>
+                <div className={styles.gridCardName}>{isScheduled && <span style={{marginRight:4}}>⏰</span>}{c.name}</div>
+                <div className={styles.gridCardSub}>{c.template?.name}</div>
+                <div className={styles.gridCardMeta}>
+                  <span className={styles.badge} style={{background: statusColor[c.status] + '22', color: statusColor[c.status]}}>{c.status}</span>
+                  {!isScheduled && <span className={styles.gridCardStat}><b>{c.sent}</b> sent · <b>{c.opened}</b> opened</span>}
+                  {isScheduled && c.scheduledAt && <span className={styles.gridCardStat} style={{color:'var(--orange)'}}>{new Date(c.scheduledAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})} {new Date(c.scheduledAt).toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:true})}</span>}
+                  <span className={styles.gridCardDate}>{new Date(c.createdAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})}</span>
+                </div>
+                <div className={styles.gridCardActions}>
+                  <button className={styles.gridActionBtn} onClick={e => { e.stopPropagation(); duplicateCampaign(c) }} title="Duplicate">⧉</button>
+                  <button className={styles.gridActionBtn} onClick={e => { e.stopPropagation(); deleteCampaign(c.id) }} title="Delete" style={{color:'var(--red)'}}>✕</button>
+                </div>
               </div>
-              <div className={styles.templateItemSubject} style={{display:'flex', alignItems:'center', gap:6}}>
-                <span>{c.template?.name}</span>
-                <span className={styles.badge} style={{background: statusColor[c.status] + '22', color: statusColor[c.status], marginLeft:'auto'}}>
-                  {c.status}
-                </span>
-              </div>
-              <div className={styles.templateItemDate}>
-                {isScheduled && c.scheduledAt ? (
-                  <span style={{color:'var(--orange)'}}>
-                    ⏰ {new Date(c.scheduledAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})} at {new Date(c.scheduledAt).toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:true})}
-                  </span>
-                ) : (
-                  <span>{c.sent} sent · {c.opened} opened · {new Date(c.createdAt).toLocaleDateString('en-PK', {day:'2-digit', month:'short'})}</span>
-                )}
-              </div>
-              <button className={styles.deleteBtn} style={{right:28}} onClick={e => { e.stopPropagation(); duplicateCampaign(c) }} title="Duplicate">⧉</button>
-              <button className={styles.deleteBtn} onClick={e => { e.stopPropagation(); deleteCampaign(c.id) }}>✕</button>
-            </div>
             )
           })}
         </div>
-
-        {/* Right pane */}
-        {creating ? (
-          <div className={styles.card} style={{flex:1}}>
-            <div className={styles.formGroup}>
-              <label className={styles.label}>Campaign Name</label>
-              <input className={styles.input} value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. Prof Outreach Jan 2025" autoFocus />
-            </div>
-            <div className={styles.formGroup}>
-              <label className={styles.label}>Template</label>
-              <select className={styles.input} value={newTemplateId} onChange={e => setNewTemplate(e.target.value)}>
-                <option value="">Select template…</option>
-                {templates.map((t: Template) => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-            </div>
-            <div className={styles.formActions} style={{marginTop:16}}>
-              <button className={styles.btnGhost} onClick={() => setCreating(false)}>Cancel</button>
-              <button className={styles.btnPrimary} onClick={createCampaign}>Create Campaign</button>
-            </div>
-          </div>
-        ) : (
-          <div className={styles.card} style={{flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:320}}>
-            <div className={styles.emptyIcon}>◈</div>
-            <div className={styles.emptyTitle}>No campaign selected</div>
-            <div className={styles.emptyText} style={{marginBottom:20}}>Pick one from the list or create a new one</div>
-            <button className={styles.btnPrimary} onClick={() => setCreating(true)}>+ New Campaign</button>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   )
 }
@@ -1192,32 +1175,40 @@ function ComposeTab({ templates: initialTemplates, onSaved, showToast }: any) {
       <div className={styles.pageHeader}>
         <div>
           <h1 className={styles.pageTitle}>Templates</h1>
-          <p className={styles.pageSubtitle}>Write reusable email templates with {'{{'} placeholders {'}'}</p>
+          <p className={styles.pageSubtitle}>Write reusable email templates with {'{{'} placeholders {'}}'}</p>
         </div>
+        <button className={styles.btnPrimary} onClick={newTemplate}>+ New Template</button>
       </div>
 
-      <div className={styles.composeGrid}>
-        {/* Template list */}
-        <div className={styles.templateList}>
-          {!localTemplates.length && (
-            <div className={styles.empty} style={{padding:'30px 20px'}}>
-              <div className={styles.emptyIcon} style={{fontSize:24}}>✦</div>
-              <div className={styles.emptyText}>No templates yet</div>
+      <div className={styles.templatePageGrid}>
+        {/* Template card grid */}
+        <div>
+          {!localTemplates.length ? (
+            <div className={styles.empty}>
+              <div className={styles.emptyIcon}>✦</div>
+              <div className={styles.emptyTitle}>No templates yet</div>
+              <div className={styles.emptyText} style={{marginBottom:16}}>Create your first template</div>
+              <button className={styles.btnPrimary} onClick={newTemplate}>+ New Template</button>
+            </div>
+          ) : (
+            <div className={styles.cardGrid}>
+              {localTemplates.map((t: Template) => (
+                <div key={t.id} className={`${styles.gridCard} ${selected?.id === t.id ? styles.gridCardActive : ''}`} onClick={() => editTemplate(t)}>
+                  <div className={styles.gridCardAccent} style={{background:'var(--accent)'}}></div>
+                  <div className={styles.gridCardName}>{selected?.id === t.id ? (name || 'Untitled') : (t.name || 'Untitled')}</div>
+                  <div className={styles.gridCardSub}>{selected?.id === t.id ? (subject || 'No subject') : (t.subject || 'No subject')}</div>
+                  <div className={styles.gridCardMeta}>
+                    {(t as any).attachmentName && <span className={styles.gridCardStat}>📎 {(t as any).attachmentName}</span>}
+                    <span className={styles.gridCardDate}>{new Date(t.updatedAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})}</span>
+                  </div>
+                  <div className={styles.gridCardActions}>
+                    <button className={styles.gridActionBtn} onClick={e => { e.stopPropagation(); duplicateTemplate(t) }} title="Duplicate">⧉</button>
+                    <button className={styles.gridActionBtn} onClick={e => { e.stopPropagation(); deleteTemplate(t.id) }} title="Delete" style={{color:'var(--red)'}}>✕</button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
-          {localTemplates.map((t: Template) => (
-            <div key={t.id} className={`${styles.templateItem} ${selected?.id === t.id ? styles.templateItemActive : ''}`} onClick={() => editTemplate(t)}>
-              <div className={styles.templateItemName}>
-                {selected?.id === t.id ? (name || 'Untitled') : (t.name || 'Untitled')}
-              </div>
-              <div className={styles.templateItemSubject}>
-                {selected?.id === t.id ? (subject || 'No subject') : (t.subject || 'No subject')}
-              </div>
-              <div className={styles.templateItemDate}>{new Date(t.updatedAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})}</div>
-              <button className={styles.deleteBtn} style={{right:28}} onClick={e => { e.stopPropagation(); duplicateTemplate(t) }} title="Duplicate">⧉</button>
-              <button className={styles.deleteBtn} onClick={e => { e.stopPropagation(); deleteTemplate(t.id) }}>✕</button>
-            </div>
-          ))}
         </div>
 
         {/* Editor */}
