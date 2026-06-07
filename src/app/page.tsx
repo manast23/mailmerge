@@ -14,10 +14,8 @@ export default function App() {
   const [templates, setTemplates]   = useState<Template[]>([])
   const [campaigns, setCampaigns]   = useState<Campaign[]>([])
   const [toast, setToast]           = useState<{msg: string, type: 'success'|'error'|'info'} | null>(null)
-  const [sidebarPinned, setSidebarPinned] = useState(false)
-  const [sidebarHovered, setSidebarHovered] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
   const [showWelcome, setShowWelcome] = useState(true)
-  const sidebarExpanded = sidebarPinned || sidebarHovered
 
   // Load data immediately — even before welcome is dismissed so it's ready instantly
   useEffect(() => { loadTemplates(); loadCampaigns() }, [])
@@ -85,9 +83,7 @@ export default function App() {
       {!showWelcome && (<>
       {/* Sidebar */}
       <aside
-        className={`${styles.sidebar} ${sidebarExpanded ? styles.sidebarExpanded : styles.sidebarCollapsed}`}
-        onMouseEnter={() => setSidebarHovered(true)}
-        onMouseLeave={() => setSidebarHovered(false)}
+        className={`${styles.sidebar} ${sidebarOpen ? styles.sidebarOpen : styles.sidebarCollapsed}`}
       >
         {/* Logo */}
         <div className={styles.logo}>
@@ -97,25 +93,23 @@ export default function App() {
               <path d="M2 8l10 6 10-6" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
             </svg>
           </div>
-          {sidebarExpanded && (
+          {sidebarOpen && (
             <div className={styles.logoText}>
               <div className={styles.logoTitle}>Mail Merge</div>
               <div className={styles.logoPro}>PRO</div>
             </div>
           )}
-          {sidebarExpanded && (
-            <button
-              className={`${styles.pinBtn} ${sidebarPinned ? styles.pinBtnActive : ''}`}
-              onClick={() => setSidebarPinned(p => !p)}
-              title={sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar'}
-            >
-              {sidebarPinned ? (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5v6l1 1 1-1v-6h5v-2l-2-2z"/></svg>
-              ) : (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v6m0 4v10M8 8h8M6 12h12"/></svg>
-              )}
-            </button>
-          )}
+          <button
+            className={styles.sidebarToggleBtn}
+            onClick={() => setSidebarOpen(p => !p)}
+            title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+          >
+            {sidebarOpen ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
+            )}
+          </button>
         </div>
 
         <nav className={styles.nav}>
@@ -137,28 +131,28 @@ export default function App() {
               key={key}
               className={`${styles.navItem} ${tab === key ? styles.navActive : ''}`}
               onClick={() => setTab(key)}
-              title={!sidebarExpanded ? label : undefined}
+              title={!sidebarOpen ? label : undefined}
             >
               <span className={styles.navIcon}>{icon}</span>
-              {sidebarExpanded && <span className={styles.navLabel}>{label}</span>}
+              {sidebarOpen && <span className={styles.navLabel}>{label}</span>}
             </button>
           ))}
         </nav>
 
-        <div className={`${styles.sidebarStats} ${sidebarExpanded ? '' : styles.sidebarStatsCollapsed}`}>
+        <div className={`${styles.sidebarStats} ${sidebarOpen ? '' : styles.sidebarStatsCollapsed}`}>
           <div className={styles.statPill}>
             <span className={styles.statDot} style={{background:'var(--accent)'}}></span>
-            {sidebarExpanded && <span>{campaigns.length} campaigns</span>}
+            {sidebarOpen && <span>{campaigns.length} campaigns</span>}
           </div>
           <div className={styles.statPill}>
             <span className={styles.statDot} style={{background:'var(--green)'}}></span>
-            {sidebarExpanded && <span>{templates.length} templates</span>}
+            {sidebarOpen && <span>{templates.length} templates</span>}
           </div>
         </div>
       </aside>
 
       {/* Main */}
-      <main className={`${styles.main} ${!sidebarExpanded ? styles.mainCollapsed : ''}`}>
+      <main className={`${styles.main} ${!sidebarOpen ? styles.mainCollapsed : ''}`}>
         {tab === 'home' && (
           <HomeTab campaigns={campaigns} setTab={setTab} />
         )}
