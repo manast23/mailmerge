@@ -1015,9 +1015,13 @@ textarea.input { resize: vertical; min-height: 80px; line-height: 1.5; }
 /* ─── Template Page Grid ─────────────── */
 .templatePageGrid {
   display: grid;
-  grid-template-columns: 1fr 340px;
+  grid-template-columns: 1fr;
   gap: 16px;
   align-items: start;
+}
+
+.templatePageGrid:has(> div:nth-child(2)) {
+  grid-template-columns: 1fr 340px;
 }
 
 /* ─── Sidebar Toggle Button ──────────── */

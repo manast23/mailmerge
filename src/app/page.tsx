@@ -1175,7 +1175,7 @@ function ComposeTab({ templates: initialTemplates, onSaved, showToast }: any) {
       </div>
 
       <div className={styles.templatePageGrid}>
-        {/* Template card grid */}
+        {/* Template card grid — left */}
         <div>
           {!localTemplates.length ? (
             <div className={styles.empty}>
@@ -1205,7 +1205,9 @@ function ComposeTab({ templates: initialTemplates, onSaved, showToast }: any) {
           )}
         </div>
 
-        {/* Editor */}
+        {/* Editor — right, only when template selected */}
+        {selected && (
+        <div className={styles.card}>
         {selected ? (
         <div className={styles.card} style={{flex:1}}>
           <div className={styles.formGroup}>
@@ -1287,13 +1289,6 @@ function ComposeTab({ templates: initialTemplates, onSaved, showToast }: any) {
             </button>
           </div>
         </div>
-        ) : (
-          <div className={styles.card} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:320}}>
-            <div className={styles.emptyIcon}>✦</div>
-            <div className={styles.emptyTitle}>No template selected</div>
-            <div className={styles.emptyText} style={{marginBottom:20}}>Pick one from the list or create a new one</div>
-            <button className={styles.btnPrimary} onClick={newTemplate}>+ New Template</button>
-          </div>
         )}
       </div>
     </div>
