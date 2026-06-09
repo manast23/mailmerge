@@ -154,7 +154,7 @@ export default function App() {
       {/* Main */}
       <main className={`${styles.main} ${!sidebarOpen ? styles.mainCollapsed : ''}`}>
         {tab === 'home' && (
-          <HomeTab campaigns={campaigns} setTab={setTab} />
+          <HomeTab campaigns={campaigns} setTab={setTab} onRefresh={() => { loadCampaigns(); loadTemplates(); showToast('Refreshed!', 'info') }} />
         )}
         {tab === 'campaigns' && (
           <CampaignsTab
@@ -188,7 +188,7 @@ export default function App() {
 }
 
 // ─── Home Tab ─────────────────────────────────────────────
-function HomeTab({ campaigns, setTab }: any) {
+function HomeTab({ campaigns, setTab, onRefresh }: any) {
   const totalSent    = campaigns.reduce((sum: number, c: Campaign) => sum + (c.sent || 0), 0)
   const totalOpened  = campaigns.reduce((sum: number, c: Campaign) => sum + (c.opened || 0), 0)
   const openRate     = totalSent ? Math.round((totalOpened / totalSent) * 100) : 0
@@ -205,6 +205,9 @@ function HomeTab({ campaigns, setTab }: any) {
           <h1 className={styles.pageTitle}>Home</h1>
           <p className={styles.pageSubtitle}>Overview of your outreach activity</p>
         </div>
+        <button className={styles.refreshBtn} onClick={onRefresh}>
+          <span className={styles.refreshIcon}>↻</span> Refresh
+        </button>
       </div>
 
       {/* Stat cards */}
@@ -1252,7 +1255,12 @@ function ComposeTab({ templates: initialTemplates, onSaved, showToast }: any) {
             <h1 className={styles.pageTitle}>Templates</h1>
             <p className={styles.pageSubtitle}>Write reusable email templates with {'{{'} placeholders {'}}'}</p>
           </div>
-          <button className={styles.btnPrimary} onClick={newTemplate}>+ New Template</button>
+          <div style={{display:'flex', gap:8}}>
+            <button className={styles.refreshBtn} onClick={() => { onSaved(); showToast('Refreshed!', 'info') }}>
+              <span className={styles.refreshIcon}>↻</span> Refresh
+            </button>
+            <button className={styles.btnPrimary} onClick={newTemplate}>+ New Template</button>
+          </div>
         </div>
 
         {!localTemplates.length ? (
