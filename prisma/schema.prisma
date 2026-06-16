@@ -41,6 +41,7 @@ model Recipient {
   email         String
   data          Json
   status        String     @default("pending")
+  sendAfter     DateTime?
   sentAt        DateTime?
   openedAt      DateTime?
   trackId       String?    @unique

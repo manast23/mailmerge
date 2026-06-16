@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { sendEmail, replacePlaceholders, randomDelay } from '@/lib/email'
+import { sendEmail, replacePlaceholders } from '@/lib/email'
 import { randomUUID } from 'crypto'
 
 export async function GET(req: NextRequest) {
@@ -53,14 +53,72 @@ export async function GET(req: NextRequest) {
       } catch (e: any) {
         await prisma.recipient.update({ where: { id: recipient.id }, data: { status: 'error', error: e.message } })
       }
-      if (i < campaign.recipients.length - 1) await randomDelay(5, 15)
+      if (i < campaign.recipients.length - 1) await new Promise(resolve => setTimeout(resolve, 1000))
     }
 
     await prisma.campaign.update({ where: { id: campaign.id }, data: { status: 'done', sentCount: { increment: sentCount } } })
     totalSent += sentCount
   }
 
-  // ── 2. Process scheduled follow-ups ─────────────────────
+  // ── 2. Process staggered recipients (new logic for delayed sends) ─────────────────────
+  const now = new Date()
+  const staggeredRecipients = await prisma.recipient.findMany({
+    where: { 
+      status: 'pending',
+      sendAfter: { lte: now }
+    },
+    include: { campaign: { include: { template: true } } },
+    take: 50 // Limit per cron run to avoid timeout
+  })
+
+  for (const recipient of staggeredRecipients) {
+    const campaign = recipient.campaign
+    const data = recipient.data as Record<string, string>
+    const trackId = randomUUID()
+    
+    try {
+      const subject = replacePlaceholders(campaign.template.subject, data)
+      const html = replacePlaceholders(campaign.template.body, data).replace(/\n/g, '<br>')
+      const result = await sendEmail({
+        to: recipient.email,
+        subject,
+        html,
+        trackId,
+        fromName: data.fromName,
+        fromEmail: data.fromEmail,
+        attachmentUrl: campaign.template.attachmentUrl || undefined,
+        attachmentName: campaign.template.attachmentName || undefined,
+      })
+      
+      await prisma.recipient.update({
+        where: { id: recipient.id },
+        data: { 
+          status: 'sent', 
+          sentAt: new Date(), 
+          trackId,
+          messageId: result.messageId || null,
+          data: { ...(recipient.data as object), _subject: subject }
+        }
+      })
+      
+      await prisma.campaign.update({
+        where: { id: campaign.id },
+        data: { sentCount: { increment: 1 } }
+      })
+      
+      totalSent++
+    } catch (e: any) {
+      await prisma.recipient.update({
+        where: { id: recipient.id },
+        data: { status: 'error', error: e.message }
+      })
+    }
+    
+    // Small delay between emails to avoid rate limits
+    await new Promise(resolve => setTimeout(resolve, 1000))
+  }
+
+  // ── 3. Process scheduled follow-ups ─────────────────────
   const scheduledFollowUps = await prisma.followUp.findMany({
     where: { status: 'scheduled', scheduledAt: { lte: new Date() } },
     include: { recipient: true, template: true }
@@ -112,8 +170,14 @@ export async function GET(req: NextRequest) {
       await prisma.followUp.update({ where: { id: followUp.id }, data: { status: 'error', error: e.message } })
     }
 
-    if (i < scheduledFollowUps.length - 1) await randomDelay(5, 15)
+    if (i < scheduledFollowUps.length - 1) await new Promise(resolve => setTimeout(resolve, 1000))
   }
 
-  return NextResponse.json({ success: true, campaignsProcessed: campaigns.length, followUpsProcessed: scheduledFollowUps.length, totalSent })
+  return NextResponse.json({ 
+    success: true, 
+    campaignsProcessed: campaigns.length, 
+    followUpsProcessed: scheduledFollowUps.length, 
+    staggeredProcessed: staggeredRecipients.length,
+    totalSent 
+  })
 }

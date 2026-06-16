@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { sendEmail, replacePlaceholders, randomDelay } from '@/lib/email'
 import { randomUUID } from 'crypto'
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { campaignId, delayMin = 30, delayMax = 90, dailyLimit = 450, fromName, fromEmail, scheduleAt } = body
-
+  const { campaignId, delayMin = 3600, delayMax = 7200, dailyLimit = 450, fromName, fromEmail, scheduleAt } = body
+  
   if (!campaignId) return NextResponse.json({ error: 'campaignId required' }, { status: 400 })
 
   if (scheduleAt) {
@@ -27,52 +26,31 @@ export async function POST(req: NextRequest) {
   const pending = campaign.recipients.slice(0, dailyLimit)
   if (!pending.length) return NextResponse.json({ success: true, sentCount: 0 })
 
-  await prisma.campaign.update({ where: { id: campaignId }, data: { status: 'sending' } })
-
-  let sentCount = 0
-  const errors: string[] = []
-
-  for (let i = 0; i < pending.length; i++) {
-    const recipient = pending[i]
-    const data      = recipient.data as Record<string, string>
-    const trackId   = randomUUID()
-    try {
-      const subject = replacePlaceholders(campaign.template.subject, data)
-      const html    = replacePlaceholders(campaign.template.body, data).replace(/\n/g, '<br>')
-      const result = await sendEmail({
-        to: recipient.email,
-        subject,
-        html,
-        trackId,
-        fromName,
-        fromEmail,
-        attachmentUrl:  campaign.template.attachmentUrl  || undefined,
-        attachmentName: campaign.template.attachmentName || undefined,
-      })
-      await prisma.recipient.update({
-        where: { id: recipient.id },
-        data:  {
-          status: 'sent', sentAt: new Date(), trackId,
-          messageId: result.messageId || null,
-          // Store resolved subject for follow-up threading
-          data: { ...(recipient.data as object), _subject: subject }
-        }
-      })
-      sentCount++
-    } catch (e: any) {
-      await prisma.recipient.update({
-        where: { id: recipient.id },
-        data:  { status: 'error', error: e.message }
-      })
-      errors.push(`${recipient.email}: ${e.message}`)
-    }
-    if (i < pending.length - 1) await randomDelay(delayMin, delayMax)
-  }
-
-  await prisma.campaign.update({
-    where: { id: campaignId },
-    data:  { status: 'done', sentCount: { increment: sentCount } }
+  // Calculate staggered sendAfter times for each recipient
+  const now = new Date()
+  const avgDelay = (delayMin + delayMax) / 2
+  const updates = pending.map((recipient, index) => {
+    const sendAfter = new Date(now.getTime() + (index * avgDelay) * 1000)
+    
+    return prisma.recipient.update({
+      where: { id: recipient.id },
+      data: { 
+        sendAfter,
+        status: 'pending'
+      }
+    })
   })
 
-  return NextResponse.json({ success: true, sentCount, errors })
+  await prisma.$transaction(updates)
+
+  await prisma.campaign.update({ 
+    where: { id: campaignId }, 
+    data: { status: 'sending' } 
+  })
+
+  return NextResponse.json({ 
+    success: true, 
+    queuedCount: pending.length,
+    message: `Queued ${pending.length} recipients. Emails will be sent with ${delayMin}-${delayMax}s delays via cron.`
+  })
 }
