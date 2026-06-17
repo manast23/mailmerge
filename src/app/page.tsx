@@ -416,7 +416,7 @@ function CampaignsTab({ campaigns: initialCampaigns, templates, onRefresh, showT
                   <span className={styles.gridCardDate}>{new Date(c.createdAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})}</span>
                 </div>
                 <div className={styles.gridCardActions}>
-                  {c.status === 'sending' && c.recipients?.some((r: any) => r.status === 'pending') && (
+                  {(c as any).status === 'sending' && (c as any).recipients?.some((r: any) => r.status === 'pending') && (
                     <button onClick={e => { e.stopPropagation(); cancelPending(c.id) }} className={styles.dangerBtn} title="Cancel Pending">
                       Cancel Pending
                     </button>
