@@ -84,8 +84,8 @@ export async function GET(req: NextRequest) {
         subject,
         html,
         trackId,
-        fromName: data.fromName,
-        fromEmail: data.fromEmail,
+        fromName: recipient.fromName || undefined,
+        fromEmail: recipient.fromEmail || undefined,
         attachmentUrl: campaign.template.attachmentUrl || undefined,
         attachmentName: campaign.template.attachmentName || undefined,
       })

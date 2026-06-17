@@ -1008,6 +1008,22 @@ textarea.input { resize: vertical; min-height: 80px; line-height: 1.5; }
 }
 .gridActionBtn:hover { background: var(--bg3); color: var(--text); border-color: var(--border2); }
 
+.dangerBtn {
+  padding: 6px 14px;
+  border: 1px solid #e53e3e;
+  background: transparent;
+  color: #e53e3e;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  border-radius: 6px;
+}
+.dangerBtn:hover {
+  background: #e53e3e;
+  color: #fff;
+}
+
 /* ─── Template Page Grid ─────────────── */
 .templatePageGrid {
   display: grid;

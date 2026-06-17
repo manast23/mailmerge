@@ -36,7 +36,9 @@ export async function POST(req: NextRequest) {
       where: { id: recipient.id },
       data: { 
         sendAfter,
-        status: 'pending'
+        status: 'pending',
+        fromName: fromName || null,
+        fromEmail: fromEmail || null,
       }
     })
   })

@@ -334,6 +334,16 @@ function CampaignsTab({ campaigns: initialCampaigns, templates, onRefresh, showT
     showToast('Campaign duplicated!')
   }
 
+  async function cancelPending(campaignId: string) {
+    const res = await fetch(`/api/campaigns/${campaignId}/cancel`, { method: 'POST' })
+    const d = await res.json()
+    setLocalCampaigns(prev => prev.map(c => c.id === campaignId
+      ? { ...c, status: 'done', recipients: (c as any).recipients?.map((r: any) => r.status === 'pending' ? { ...r, status: 'cancelled' } : r) || [] }
+      : c
+    ))
+    showToast(`Cancelled ${d.cancelledCount} pending emails`)
+  }
+
   const statusColor: any = { draft: 'var(--text3)', sending: 'var(--orange)', done: 'var(--green)', scheduled: 'var(--purple)' }
 
   if (selected) return (
@@ -406,6 +416,11 @@ function CampaignsTab({ campaigns: initialCampaigns, templates, onRefresh, showT
                   <span className={styles.gridCardDate}>{new Date(c.createdAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})}</span>
                 </div>
                 <div className={styles.gridCardActions}>
+                  {c.status === 'sending' && c.recipients?.some((r: any) => r.status === 'pending') && (
+                    <button onClick={e => { e.stopPropagation(); cancelPending(c.id) }} className={styles.dangerBtn} title="Cancel Pending">
+                      Cancel Pending
+                    </button>
+                  )}
                   <button className={styles.gridActionBtn} onClick={e => { e.stopPropagation(); duplicateCampaign(c) }} title="Duplicate">⧉</button>
                   <button className={styles.gridActionBtn} onClick={e => { e.stopPropagation(); deleteCampaign(c.id) }} title="Delete" style={{color:'var(--red)'}}>✕</button>
                 </div>
