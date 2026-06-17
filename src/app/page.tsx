@@ -416,14 +416,14 @@ function CampaignsTab({ campaigns: initialCampaigns, templates, onRefresh, showT
                   <span className={styles.gridCardDate}>{new Date(c.createdAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})}</span>
                 </div>
                 <div className={styles.gridCardActions}>
-                  {(c as any).status === 'sending' && (c as any).hasPending && (
+                  {(c as any).status === 'sending' || (c as any).status === 'scheduled' ? ((c as any).hasPending && (
                     <button onClick={e => { e.stopPropagation(); cancelPending(c.id) }} className={styles.gridActionBtn} title="Cancel Pending" style={{color:'var(--red)'}}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                        <circle cx="12" cy="12" r="9"></circle>
+                        <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
                       </svg>
                     </button>
-                  )}
+                  )) : null}
                   <button className={styles.gridActionBtn} onClick={e => { e.stopPropagation(); duplicateCampaign(c) }} title="Duplicate">⧉</button>
                   <button className={styles.gridActionBtn} onClick={e => { e.stopPropagation(); deleteCampaign(c.id) }} title="Delete" style={{color:'var(--red)'}}>✕</button>
                 </div>
