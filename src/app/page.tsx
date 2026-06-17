@@ -338,7 +338,7 @@ function CampaignsTab({ campaigns: initialCampaigns, templates, onRefresh, showT
     const res = await fetch(`/api/campaigns/${campaignId}/cancel`, { method: 'POST' })
     const d = await res.json()
     setLocalCampaigns(prev => prev.map(c => c.id === campaignId
-      ? { ...c, status: 'done', recipients: (c as any).recipients?.map((r: any) => r.status === 'pending' ? { ...r, status: 'cancelled' } : r) || [] }
+      ? { ...c, status: 'done', hasPending: false, recipients: (c as any).recipients?.map((r: any) => r.status === 'pending' ? { ...r, status: 'cancelled' } : r) || [] }
       : c
     ))
     showToast(`Cancelled ${d.cancelledCount} pending emails`)
@@ -416,7 +416,7 @@ function CampaignsTab({ campaigns: initialCampaigns, templates, onRefresh, showT
                   <span className={styles.gridCardDate}>{new Date(c.createdAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})}</span>
                 </div>
                 <div className={styles.gridCardActions}>
-                  {(c as any).status === 'sending' && (c as any).recipients?.some((r: any) => r.status === 'pending') && (
+                  {(c as any).status === 'sending' && (c as any).hasPending && (
                     <button onClick={e => { e.stopPropagation(); cancelPending(c.id) }} className={styles.dangerBtn} title="Cancel Pending">
                       Cancel Pending
                     </button>

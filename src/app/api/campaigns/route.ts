@@ -21,6 +21,7 @@ export async function GET() {
     sent:        c.recipients.filter(r => r.status === 'sent').length,
     opened:      c.recipients.filter(r => r.openedAt).length,
     errors:      c.recipients.filter(r => r.status === 'error').length,
+    hasPending:  c.recipients.some(r => r.status === 'pending'),
   }))
   return NextResponse.json(enriched)
 }
