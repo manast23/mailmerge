@@ -48,6 +48,8 @@ model Recipient {
   messageId     String?
   followUpCount Int        @default(0)
   error         String?
+  fromName      String?
+  fromEmail     String?
   createdAt     DateTime   @default(now())
   followUps     FollowUp[]
 }
