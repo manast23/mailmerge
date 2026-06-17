@@ -417,8 +417,11 @@ function CampaignsTab({ campaigns: initialCampaigns, templates, onRefresh, showT
                 </div>
                 <div className={styles.gridCardActions}>
                   {(c as any).status === 'sending' && (c as any).hasPending && (
-                    <button onClick={e => { e.stopPropagation(); cancelPending(c.id) }} className={styles.dangerBtn} title="Cancel Pending">
-                      Cancel Pending
+                    <button onClick={e => { e.stopPropagation(); cancelPending(c.id) }} className={styles.gridActionBtn} title="Cancel Pending" style={{color:'var(--red)'}}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
                     </button>
                   )}
                   <button className={styles.gridActionBtn} onClick={e => { e.stopPropagation(); duplicateCampaign(c) }} title="Duplicate">⧉</button>
