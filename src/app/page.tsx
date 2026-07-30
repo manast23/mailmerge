@@ -824,7 +824,26 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
             {importTab === 'manual' && (
               <div className={styles.importPanel}>
                 <label className={styles.label}>Paste tab-separated data (copy from Excel/Sheets)</label>
-                <textarea className={styles.textarea} rows={6} value={manualText} onChange={e => setManualText(e.target.value)} placeholder={'Name\tEmail\tUniversity\nProf. Smith\tsmith@uni.edu\tMIT'}/>
+                <textarea
+                  className={styles.textarea}
+                  rows={6}
+                  value={manualText}
+                  onChange={e => setManualText(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Tab') {
+                      e.preventDefault()
+                      const target = e.target as HTMLTextAreaElement
+                      const start = target.selectionStart
+                      const end = target.selectionEnd
+                      const next = manualText.slice(0, start) + '\t' + manualText.slice(end)
+                      setManualText(next)
+                      requestAnimationFrame(() => {
+                        target.selectionStart = target.selectionEnd = start + 1
+                      })
+                    }
+                  }}
+                  placeholder={'Name\tEmail\tUniversity\nProf. Smith\tsmith@uni.edu\tMIT'}
+                />
                 <button className={styles.btnPrimary} style={{marginTop:10}} onClick={importManual}>Add Recipients</button>
               </div>
             )}
