@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth'
 
 export async function POST(req: NextRequest) {
+  const user = await getCurrentUser()
+  if (!user) return NextResponse.json({ error: 'Not logged in' }, { status: 401 })
+
   const { campaignId } = await req.json()
   if (!campaignId) return NextResponse.json({ error: 'campaignId required' }, { status: 400 })
 
@@ -9,13 +13,15 @@ export async function POST(req: NextRequest) {
     where: { id: campaignId },
     include: { recipients: true, template: true }
   })
-  if (!original) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+  if (!original || original.userId !== user.id) {
+    return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+  }
 
-  // Create duplicate campaign with all recipients as pending
   const duplicate = await prisma.campaign.create({
     data: {
       name: `Copy of ${original.name}`,
       templateId: original.templateId,
+      userId: user.id,
       status: 'draft',
       recipients: {
         create: original.recipients.map(r => ({

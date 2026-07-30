@@ -93,6 +93,20 @@ src/lib/
 
 ## Environment Variables (Vercel)
 - DATABASE_URL, DIRECT_URL — Supabase connection strings
-- GMAIL_USER, GMAIL_APP_PASSWORD — Gmail SMTP
+- SESSION_SECRET — signs login session cookies (pick a long random string)
+- ENCRYPTION_KEY — encrypts each user's Gmail App Password at rest (pick a long random string)
 - CRON_SECRET — cron-job.org auth
-- NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY — Supabase storage
+- NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_KEY — Supabase storage (attachments)
+- NEXT_PUBLIC_APP_URL — deployed app URL, used for the tracking pixel
+
+## Multi-user architecture (added July 2026)
+- Each person now has their own account (`/signup`, `/login`), gated by `src/middleware.ts`.
+- Templates and Campaigns are scoped by `userId`. Recipients/FollowUps inherit access via their Campaign.
+- Each user connects their own Gmail address + App Password under the "Account" tab
+  (`/api/account`, encrypted with `ENCRYPTION_KEY` via `src/lib/crypto.ts`). Nodemailer transporters
+  are now created per-send using the owning user's credentials (`src/lib/email.ts`), not a single
+  global GMAIL_USER/GMAIL_APP_PASSWORD env var.
+- `src/app/api/cron/route.ts` looks up each recipient/campaign/follow-up's owning user to send with
+  the correct account.
+- Migration SQL for the User table + userId columns: `prisma/migrations/manual_multiuser_migration.sql`
+  (must be run manually in Supabase SQL Editor, then backfilled with the first signed-up user's id).

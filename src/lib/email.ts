@@ -1,12 +1,14 @@
 import nodemailer from 'nodemailer'
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
-  },
-})
+function getTransporter(gmailUser: string, gmailAppPassword: string) {
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: gmailUser,
+      pass: gmailAppPassword,
+    },
+  })
+}
 
 export function replacePlaceholders(text: string, data: Record<string, string>): string {
   return text.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
@@ -25,37 +27,41 @@ export async function sendEmail({
   html,
   trackId,
   fromName,
-  fromEmail,
   attachmentUrl,
   attachmentName,
   inReplyTo,
   references,
+  gmailUser,
+  gmailAppPassword,
 }: {
   to: string
   subject: string
   html: string
   trackId: string
   fromName?: string
-  fromEmail?: string
   attachmentUrl?: string
   attachmentName?: string
   inReplyTo?: string
   references?: string
+  gmailUser: string
+  gmailAppPassword: string
 }) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
   const pixelUrl = `${baseUrl}/api/track?t=${trackId}`
   const trackedHtml = html + `<img src="${pixelUrl}" width="1" height="1" style="display:none;border:0;outline:none" alt="" />`
 
   const fromAddress = fromName
-    ? `${fromName} <${process.env.GMAIL_USER}>`
-    : `${process.env.GMAIL_USER}`
+    ? `${fromName} <${gmailUser}>`
+    : gmailUser
+
+  const transporter = getTransporter(gmailUser, gmailAppPassword)
 
   const mailOptions: any = {
     from: fromAddress,
     to,
     subject,
     html: trackedHtml,
-    replyTo: process.env.GMAIL_USER,
+    replyTo: gmailUser,
   }
 
   if (inReplyTo) mailOptions.inReplyTo = inReplyTo

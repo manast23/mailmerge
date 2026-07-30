@@ -7,7 +7,7 @@ interface Template { id: string; name: string; subject: string; body: string; up
 interface Campaign { id: string; name: string; status: string; template: { name: string; subject: string }; total: number; sent: number; opened: number; errors: number; createdAt: string; scheduledAt?: string; templateId?: string; attachmentName?: string; attachmentUrl?: string }
 interface Recipient { id: string; email: string; data: any; status: string; sentAt?: string; openedAt?: string; error?: string }
 
-type Tab = 'home' | 'campaigns' | 'compose' | 'dashboard'
+type Tab = 'home' | 'campaigns' | 'compose' | 'dashboard' | 'account'
 
 export default function App() {
   const [tab, setTab]               = useState<Tab>('home')
@@ -74,7 +74,7 @@ export default function App() {
               Get Started
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
             </button>
-            <p className={styles.welcomeNote}>No login required</p>
+            <p className={styles.welcomeNote}>Your campaigns, your data, your Gmail</p>
           </div>
         </div>
       )}
@@ -126,6 +126,9 @@ export default function App() {
             ['dashboard', (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
             ), 'Dashboard'],
+            ['account', (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+            ), 'Account'],
           ] as [Tab, React.ReactNode, string][]).map(([key, icon, label]) => (
             <button
               key={key}
@@ -174,6 +177,9 @@ export default function App() {
         {tab === 'dashboard' && (
           <DashboardTab campaigns={campaigns} showToast={showToast} />
         )}
+        {tab === 'account' && (
+          <AccountTab showToast={showToast} />
+        )}
       </main>
 
       {/* Toast */}
@@ -183,6 +189,124 @@ export default function App() {
         </div>
       )}
       </>)}
+    </div>
+  )
+}
+
+// ─── Account Tab ──────────────────────────────────────────
+function AccountTab({ showToast }: any) {
+  const [user, setUser] = useState<any>(null)
+  const [gmailAddress, setGmailAddress] = useState('')
+  const [appPassword, setAppPassword] = useState('')
+  const [connected, setConnected] = useState(false)
+  const [savedEmail, setSavedEmail] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/auth/me').then(r => r.json()).then(d => setUser(d.user))
+    fetch('/api/account').then(r => r.json()).then(d => {
+      if (d.gmailAddress) { setGmailAddress(d.gmailAddress); setSavedEmail(d.gmailAddress) }
+      setConnected(!!d.connected)
+    })
+  }, [])
+
+  async function handleConnect(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      const res = await fetch('/api/account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gmailAddress, appPassword }),
+      })
+      const data = await res.json()
+      if (!res.ok) { showToast(data.error || 'Could not connect Gmail', 'error'); setLoading(false); return }
+      setConnected(true)
+      setSavedEmail(gmailAddress)
+      setAppPassword('')
+      showToast('Gmail account connected!', 'success')
+    } catch {
+      showToast('Something went wrong', 'error')
+    }
+    setLoading(false)
+  }
+
+  async function handleDisconnect() {
+    if (!confirm('Disconnect this Gmail account? You will need to reconnect before sending again.')) return
+    await fetch('/api/account', { method: 'DELETE' })
+    setConnected(false)
+    setSavedEmail('')
+    setGmailAddress('')
+    showToast('Gmail account disconnected', 'info')
+  }
+
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' })
+    window.location.href = '/login'
+  }
+
+  return (
+    <div style={{ maxWidth: 520 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Account</h1>
+      <p style={{ color: 'var(--text2)', fontSize: 13, marginBottom: 24 }}>
+        {user ? `Logged in as ${user.name} (${user.email})` : 'Loading…'}
+      </p>
+
+      <div className={styles.card} style={{ marginBottom: 16 }}>
+        <div className={styles.cardHeader}>
+          <div className={styles.cardTitle}>Gmail connection</div>
+        </div>
+
+        {connected && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, fontSize: 13.5 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green)', display: 'inline-block' }} />
+            Connected as <strong>{savedEmail}</strong>
+          </div>
+        )}
+
+        <form onSubmit={handleConnect}>
+          <div className={styles.formGroup}>
+            <label className={styles.label}>Gmail address</label>
+            <input
+              className={styles.input}
+              type="email"
+              required
+              value={gmailAddress}
+              onChange={e => setGmailAddress(e.target.value)}
+              placeholder="you@gmail.com"
+            />
+          </div>
+          <div className={styles.formGroup}>
+            <label className={styles.label}>App Password</label>
+            <input
+              className={styles.input}
+              type="password"
+              required
+              value={appPassword}
+              onChange={e => setAppPassword(e.target.value)}
+              placeholder="16-character App Password"
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <button className={styles.btnPrimary} type="submit" disabled={loading}>
+              {loading ? 'Connecting…' : connected ? 'Update connection' : 'Connect Gmail'}
+            </button>
+            {connected && (
+              <button type="button" className={styles.btnGhost} onClick={handleDisconnect}>
+                Disconnect
+              </button>
+            )}
+          </div>
+        </form>
+
+        <p style={{ marginTop: 16, fontSize: 12, color: 'var(--text3)', lineHeight: 1.6 }}>
+          Don't have an App Password? Go to your Google Account → Security → 2-Step Verification →
+          App Passwords, generate one for "Mail", and paste the 16-character code above.
+          Your password is stored encrypted and is only used to send your own campaigns.
+        </p>
+      </div>
+
+      <button className={styles.btnGhost} onClick={handleLogout}>Log out</button>
     </div>
   )
 }

@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { parse } from 'csv-parse/sync'
+import { getCurrentUser } from '@/lib/auth'
+
+async function assertCampaignOwnership(campaignId: string, userId: string) {
+  const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } })
+  return !!campaign && campaign.userId === userId
+}
 
 export async function GET(req: NextRequest) {
+  const user = await getCurrentUser()
+  if (!user) return NextResponse.json({ error: 'Not logged in' }, { status: 401 })
+
   const campaignId = req.nextUrl.searchParams.get('campaignId')
   const status     = req.nextUrl.searchParams.get('status')
   const dateFrom   = req.nextUrl.searchParams.get('dateFrom')
@@ -10,6 +19,9 @@ export async function GET(req: NextRequest) {
   const search     = req.nextUrl.searchParams.get('search')
 
   if (!campaignId) return NextResponse.json({ error: 'campaignId required' }, { status: 400 })
+  if (!(await assertCampaignOwnership(campaignId, user.id))) {
+    return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+  }
 
   const where: any = { campaignId }
   if (status === 'opened')     where.openedAt = { not: null }
@@ -38,9 +50,15 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const user = await getCurrentUser()
+  if (!user) return NextResponse.json({ error: 'Not logged in' }, { status: 401 })
+
   const contentType = req.headers.get('content-type') || ''
   const campaignId  = req.nextUrl.searchParams.get('campaignId')
   if (!campaignId) return NextResponse.json({ error: 'campaignId required' }, { status: 400 })
+  if (!(await assertCampaignOwnership(campaignId, user.id))) {
+    return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+  }
 
   if (contentType.includes('multipart/form-data')) {
     const form = await req.formData()
@@ -74,8 +92,15 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const user = await getCurrentUser()
+  if (!user) return NextResponse.json({ error: 'Not logged in' }, { status: 401 })
+
   const campaignId = req.nextUrl.searchParams.get('campaignId')
   if (!campaignId) return NextResponse.json({ error: 'campaignId required' }, { status: 400 })
+  if (!(await assertCampaignOwnership(campaignId, user.id))) {
+    return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+  }
+
   await prisma.recipient.deleteMany({ where: { campaignId } })
   return NextResponse.json({ success: true })
 }

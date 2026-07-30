@@ -2,16 +2,26 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendEmail, replacePlaceholders, randomDelay } from '@/lib/email'
 import { randomUUID } from 'crypto'
+import { getCurrentUser } from '@/lib/auth'
+import { decrypt } from '@/lib/crypto'
 
 export async function POST(req: NextRequest) {
-  const { campaignId, templateId, followUpType, followUpLevel, selectedIds, scheduledAt, delayMin = 30, delayMax = 90, fromName, fromEmail } = await req.json()
+  const user = await getCurrentUser()
+  if (!user) return NextResponse.json({ error: 'Not logged in' }, { status: 401 })
+
+  const { campaignId, templateId, followUpType, followUpLevel, selectedIds, scheduledAt, delayMin = 30, delayMax = 90, fromName } = await req.json()
 
   if (!campaignId || !templateId || !followUpType || followUpLevel === undefined) {
     return NextResponse.json({ error: 'campaignId, templateId, followUpType and followUpLevel required' }, { status: 400 })
   }
 
+  const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } })
+  if (!campaign || campaign.userId !== user.id) {
+    return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+  }
+
   const template = await prisma.template.findUnique({ where: { id: templateId } })
-  if (!template) return NextResponse.json({ error: 'Template not found' }, { status: 404 })
+  if (!template || template.userId !== user.id) return NextResponse.json({ error: 'Template not found' }, { status: 404 })
 
   const whereFilter: any = selectedIds?.length
     ? { id: { in: selectedIds }, campaignId, status: 'sent' }
@@ -39,12 +49,18 @@ export async function POST(req: NextRequest) {
         delayMin,
         delayMax,
         fromName:    fromName || null,
-        fromEmail:   fromEmail || null,
+        fromEmail:   user.gmailAddress || null,
         trackId:     randomUUID(),
       }))
     })
     return NextResponse.json({ success: true, scheduled: true, count: targets.length })
   }
+
+  if (!user.encryptedAppPassword || !user.gmailAddress) {
+    return NextResponse.json({ error: 'Connect your Gmail account first (Account tab) before sending.' }, { status: 400 })
+  }
+  const gmailUser = user.gmailAddress
+  const gmailAppPassword = decrypt(user.encryptedAppPassword)
 
   // Send immediately
   let sentCount = 0
@@ -67,7 +83,8 @@ export async function POST(req: NextRequest) {
         : followUpSubject
 
       const result = await sendEmail({
-        to: recipient.email, subject, html, trackId, fromName, fromEmail,
+        to: recipient.email, subject, html, trackId, fromName,
+        gmailUser, gmailAppPassword,
         attachmentUrl:  template.attachmentUrl  || undefined,
         attachmentName: template.attachmentName || undefined,
         inReplyTo:  recipient.messageId || undefined,
@@ -96,8 +113,20 @@ export async function POST(req: NextRequest) {
 
 // Cancel a scheduled follow-up
 export async function DELETE(req: NextRequest) {
+  const user = await getCurrentUser()
+  if (!user) return NextResponse.json({ error: 'Not logged in' }, { status: 401 })
+
   const id = req.nextUrl.searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
+
+  const followUp = await prisma.followUp.findUnique({
+    where: { id },
+    include: { recipient: { include: { campaign: true } } }
+  })
+  if (!followUp || followUp.recipient.campaign.userId !== user.id) {
+    return NextResponse.json({ error: 'Follow-up not found' }, { status: 404 })
+  }
+
   await prisma.followUp.delete({ where: { id } })
   return NextResponse.json({ success: true })
 }

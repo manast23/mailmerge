@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,12 +10,20 @@ const supabase = createClient(
 
 export async function POST(req: NextRequest) {
   try {
+    const user = await getCurrentUser()
+    if (!user) return NextResponse.json({ error: 'Not logged in' }, { status: 401 })
+
     const form = await req.formData()
     const file = form.get('file') as File
     const templateId = form.get('templateId') as string
 
     if (!file || !templateId) {
       return NextResponse.json({ error: 'File and templateId required' }, { status: 400 })
+    }
+
+    const template = await prisma.template.findUnique({ where: { id: templateId } })
+    if (!template || template.userId !== user.id) {
+      return NextResponse.json({ error: 'Template not found' }, { status: 404 })
     }
 
     const bytes = await file.arrayBuffer()
@@ -57,7 +66,15 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    const user = await getCurrentUser()
+    if (!user) return NextResponse.json({ error: 'Not logged in' }, { status: 401 })
+
     const { templateId } = await req.json()
+    const template = await prisma.template.findUnique({ where: { id: templateId } })
+    if (!template || template.userId !== user.id) {
+      return NextResponse.json({ error: 'Template not found' }, { status: 404 })
+    }
+
     await prisma.template.update({
       where: { id: templateId },
       data: { attachmentUrl: null, attachmentName: null }

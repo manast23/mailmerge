@@ -1,12 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { randomUUID } from 'crypto'
+import { getCurrentUser } from '@/lib/auth'
 
 export async function POST(req: NextRequest) {
+  const user = await getCurrentUser()
+  if (!user) return NextResponse.json({ error: 'Not logged in' }, { status: 401 })
+  if (!user.encryptedAppPassword) {
+    return NextResponse.json({ error: 'Connect your Gmail account first (Account tab) before sending.' }, { status: 400 })
+  }
+
   const body = await req.json()
-  const { campaignId, delayMin = 3600, delayMax = 7200, dailyLimit = 450, fromName, fromEmail, scheduleAt } = body
-  
+  const { campaignId, delayMin = 3600, delayMax = 7200, dailyLimit = 450, fromName, scheduleAt } = body
+
   if (!campaignId) return NextResponse.json({ error: 'campaignId required' }, { status: 400 })
+
+  const campaignOwner = await prisma.campaign.findUnique({ where: { id: campaignId } })
+  if (!campaignOwner || campaignOwner.userId !== user.id) {
+    return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+  }
 
   if (scheduleAt) {
     await prisma.campaign.update({
@@ -31,27 +42,27 @@ export async function POST(req: NextRequest) {
   const avgDelay = (delayMin + delayMax) / 2
   const updates = pending.map((recipient, index) => {
     const sendAfter = new Date(now.getTime() + (index * avgDelay) * 1000)
-    
+
     return prisma.recipient.update({
       where: { id: recipient.id },
-      data: { 
+      data: {
         sendAfter,
         status: 'pending',
         fromName: fromName || null,
-        fromEmail: fromEmail || null,
+        fromEmail: user.gmailAddress || null,
       }
     })
   })
 
   await prisma.$transaction(updates)
 
-  await prisma.campaign.update({ 
-    where: { id: campaignId }, 
-    data: { status: 'sending' } 
+  await prisma.campaign.update({
+    where: { id: campaignId },
+    data: { status: 'sending' }
   })
 
-  return NextResponse.json({ 
-    success: true, 
+  return NextResponse.json({
+    success: true,
     queuedCount: pending.length,
     message: `Queued ${pending.length} recipients. Emails will be sent with ${delayMin}-${delayMax}s delays via cron.`
   })
