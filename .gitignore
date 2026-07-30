@@ -14,3 +14,7 @@
 dist/
 build/
 .turbo/
+
+# Claude sandbox artifacts — never belong in this repo
+/mnt/
+*.bak
