@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Dashboard - Mail Merge Pro</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8f9fb; color: #111112; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 20; font-size: 20px; }
+        .ghost-border { border: 1px solid #e8e9ec; }
+        .ambient-shadow { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e1e2e4; border-radius: 10px; }
+    </style>
+</head>
+<body class="min-h-screen flex overflow-hidden">
+<aside class="fixed left-0 top-0 h-full w-[220px] border-r border-[#e8e9ec] bg-white flex flex-col py-8 px-2 z-50">
+<div class="mb-10 px-2"><h1 class="text-xl font-bold text-[#111112]">Mail Merge Pro</h1></div>
+<nav class="flex-1 flex flex-col gap-1">
+<a class="flex items-center gap-2 text-[#5c5f60] hover:text-[#111112] hover:bg-[#f2f4f6] transition-colors px-3 py-2.5 rounded-lg text-sm" href="#"><span class="material-symbols-outlined">home</span><span>Home</span></a>
+<a class="flex items-center gap-2 text-[#5c5f60] hover:text-[#111112] hover:bg-[#f2f4f6] transition-colors px-3 py-2.5 rounded-lg text-sm" href="#"><span class="material-symbols-outlined">send</span><span>Campaigns</span></a>
+<a class="flex items-center gap-2 text-[#5c5f60] hover:text-[#111112] hover:bg-[#f2f4f6] transition-colors px-3 py-2.5 rounded-lg text-sm" href="#"><span class="material-symbols-outlined">edit_note</span><span>Compose</span></a>
+<a class="flex items-center gap-2 bg-[#edeef0] border-l-2 border-[#111112] text-[#111112] font-semibold px-3 py-2.5 rounded-r-lg text-sm" href="#"><span class="material-symbols-outlined">query_stats</span><span>Dashboard</span></a>
+<a class="flex items-center gap-2 text-[#5c5f60] hover:text-[#111112] hover:bg-[#f2f4f6] transition-colors px-3 py-2.5 rounded-lg text-sm" href="#"><span class="material-symbols-outlined">person</span><span>Account</span></a>
+</nav>
+</aside>
+<main class="ml-[220px] flex-1 flex flex-col h-screen overflow-hidden">
+<!-- Top bar: no notification bell, no stock photo -> initials avatar (matches other screens) -->
+<header class="flex justify-between items-center w-full h-16 px-8 bg-[#f8f9fb] border-b border-[#e8e9ec] z-40">
+<h2 class="text-xl font-bold text-[#111112]">Dashboard</h2>
+<div class="flex items-center gap-4">
+<button class="flex items-center gap-2 border border-[#e8e9ec] bg-white px-4 py-2 rounded-lg text-sm text-[#111112] hover:bg-[#f2f4f6] transition-colors"><span class="material-symbols-outlined text-[18px]">download</span>Export CSV</button>
+<div class="h-8 w-8 rounded-full bg-[#111112] flex items-center justify-center text-white font-semibold text-sm">A</div>
+</div>
+</header>
+<div class="flex-1 overflow-y-auto custom-scrollbar p-8 space-y-8">
+<section class="bg-white ghost-border rounded-lg p-3 flex flex-wrap items-center gap-4 ambient-shadow">
+<div class="flex items-center gap-2 px-3 border-r border-[#e8e9ec]"><span class="material-symbols-outlined text-[#5c5f60]">filter_list</span><span class="text-xs text-[#5c5f60] uppercase tracking-wider">Filters</span></div>
+<div class="flex gap-3">
+<div class="relative"><select class="appearance-none bg-[#f2f4f6] border-none rounded-lg px-4 py-2 pr-10 text-sm text-[#111112] focus:ring-0 cursor-pointer min-w-[180px]"><option>All Campaigns</option><option>Product Launch Q4</option><option>Weekly Newsletter #42</option></select><span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#5c5f60]">expand_more</span></div>
+<div class="relative"><select class="appearance-none bg-[#f2f4f6] border-none rounded-lg px-4 py-2 pr-10 text-sm text-[#111112] focus:ring-0 cursor-pointer min-w-[150px]"><option>Last 30 Days</option><option>Last 7 Days</option></select><span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#5c5f60]">calendar_today</span></div>
+<div class="relative"><select class="appearance-none bg-[#f2f4f6] border-none rounded-lg px-4 py-2 pr-10 text-sm text-[#111112] focus:ring-0 cursor-pointer min-w-[130px]"><option>Status: All</option><option>Sent</option><option>Opened</option></select><span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#5c5f60]">expand_more</span></div>
+</div>
+<button class="ml-auto text-[#5c5f60] hover:text-[#111112] text-sm px-2">Clear All</button>
+</section>
+<section class="grid grid-cols-1 md:grid-cols-4 gap-6">
+<div class="bg-white ghost-border rounded-lg p-6 ambient-shadow"><p class="text-xs text-[#5c5f60] uppercase tracking-widest mb-1">Sent</p><span class="text-2xl font-semibold">1,248</span></div>
+<div class="bg-white ghost-border rounded-lg p-6 ambient-shadow"><p class="text-xs text-[#5c5f60] uppercase tracking-widest mb-1">Opened</p><span class="text-2xl font-semibold">801</span></div>
+<div class="bg-white ghost-border rounded-lg p-6 ambient-shadow"><p class="text-xs text-[#5c5f60] uppercase tracking-widest mb-1">Open Rate</p><span class="text-2xl font-semibold">64.2%</span></div>
+<div class="bg-white ghost-border rounded-lg p-6 ambient-shadow"><p class="text-xs text-[#5c5f60] uppercase tracking-widest mb-1">Follow-ups</p><span class="text-2xl font-semibold">31</span></div>
+</section>
+<section class="bg-white ghost-border rounded-xl ambient-shadow flex flex-col h-full overflow-hidden">
+<div class="px-6 py-4 border-b border-[#e8e9ec] flex items-center justify-between">
+<h3 class="text-lg font-semibold text-[#111112]">Recipients</h3>
+<div class="flex items-center bg-[#f2f4f6] rounded-lg px-3 py-1.5 w-64 border border-transparent focus-within:border-[#111112] transition-all"><span class="material-symbols-outlined text-[#5c5f60] mr-2">search</span><input class="bg-transparent border-none p-0 focus:ring-0 text-sm w-full placeholder:text-[#77777b]" placeholder="Search contacts..." type="text"/></div>
+</div>
+<div class="overflow-x-auto flex-1">
+<table class="w-full text-left border-collapse">
+<thead class="bg-[#f8f9fb] border-b border-[#e8e9ec] sticky top-0">
+<tr>
+<th class="px-6 py-4 text-xs text-[#5c5f60] uppercase tracking-wider cursor-pointer hover:text-[#111112] transition-colors">Recipient <span class="material-symbols-outlined text-[14px] align-middle">unfold_more</span></th>
+<th class="px-6 py-4 text-xs text-[#5c5f60] uppercase tracking-wider cursor-pointer hover:text-[#111112] transition-colors">Campaign <span class="material-symbols-outlined text-[14px] align-middle">unfold_more</span></th>
+<th class="px-6 py-4 text-xs text-[#5c5f60] uppercase tracking-wider text-center">Status</th>
+<th class="px-6 py-4 text-xs text-[#5c5f60] uppercase tracking-wider cursor-pointer hover:text-[#111112] transition-colors">Sent At <span class="material-symbols-outlined text-[14px] align-middle">unfold_more</span></th>
+<th class="px-6 py-4 text-xs text-[#5c5f60] uppercase tracking-wider text-right">Opened At</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-[#e8e9ec]">
+<tr class="hover:bg-[#f7f8fa] transition-colors">
+<td class="px-6 py-4"><div class="flex flex-col"><span class="font-semibold text-sm text-[#111112]">Alex Thompson</span><span class="text-[#5c5f60] text-xs">alex.t@example.com</span></div></td>
+<td class="px-6 py-4 text-sm text-[#111112]">Product Launch Q4</td>
+<td class="px-6 py-4 text-center"><div class="flex items-center justify-center gap-2"><div class="w-2 h-2 rounded-full bg-green-500"></div><span class="bg-[#f2f3f5] text-[#111112] px-2 py-0.5 rounded text-xs">Opened</span></div></td>
+<td class="px-6 py-4 text-sm text-[#5c5f60]">Oct 12, 09:15</td>
+<td class="px-6 py-4 text-right text-sm text-[#5c5f60]">Oct 12, 11:30</td>
+</tr>
+<tr class="hover:bg-[#f7f8fa] transition-colors">
+<td class="px-6 py-4"><div class="flex flex-col"><span class="font-semibold text-sm text-[#111112]">Sarah Jenkins</span><span class="text-[#5c5f60] text-xs">s.jenkins@corporate.io</span></div></td>
+<td class="px-6 py-4 text-sm text-[#111112]">Product Launch Q4</td>
+<td class="px-6 py-4 text-center"><div class="flex items-center justify-center gap-2"><div class="w-2 h-2 rounded-full bg-orange-400"></div><span class="bg-[#f2f3f5] text-[#111112] px-2 py-0.5 rounded text-xs">Sent</span></div></td>
+<td class="px-6 py-4 text-sm text-[#5c5f60]">Oct 13, 10:02</td>
+<td class="px-6 py-4 text-right text-sm text-[#5c5f60]">—</td>
+</tr>
+<tr class="hover:bg-[#f7f8fa] transition-colors">
+<td class="px-6 py-4"><div class="flex flex-col"><span class="font-semibold text-sm text-[#111112]">Elena Rodriguez</span><span class="text-[#5c5f60] text-xs">elena.r@global.net</span></div></td>
+<td class="px-6 py-4 text-sm text-[#111112]">Weekly Newsletter #42</td>
+<td class="px-6 py-4 text-center"><div class="flex items-center justify-center gap-2"><div class="w-2 h-2 rounded-full bg-red-500"></div><span class="bg-[#f2f3f5] text-[#111112] px-2 py-0.5 rounded text-xs">Error</span></div></td>
+<td class="px-6 py-4 text-sm text-[#5c5f60]">—</td>
+<td class="px-6 py-4 text-right text-sm text-[#5c5f60]">—</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="px-6 py-4 border-t border-[#e8e9ec] flex items-center justify-between bg-[#f8f9fb]">
+<span class="text-sm text-[#5c5f60]">Showing 1 to 3 of 12 results</span>
+<div class="flex gap-2">
+<button class="ghost-border bg-white p-2 rounded hover:bg-[#f2f4f6] transition-colors disabled:opacity-50" disabled><span class="material-symbols-outlined text-[18px]">chevron_left</span></button>
+<button class="bg-[#111112] text-white px-3 py-1 rounded text-sm">1</button>
+<button class="ghost-border bg-white px-3 py-1 rounded text-sm hover:bg-[#f2f4f6] transition-colors">2</button>
+<button class="ghost-border bg-white p-2 rounded hover:bg-[#f2f4f6] transition-colors"><span class="material-symbols-outlined text-[18px]">chevron_right</span></button>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- FIXES APPLIED: removed notification bell + stock photo -> initials avatar; replaced
+     "Engagement" column (mail/drafts/click icons implying click tracking, which doesn't
+     exist) with a single "Opened At" timestamp column matching real open-tracking-only
+     behavior; scaled pagination numbers down to realistic personal-tool scale -->
+</body></html>

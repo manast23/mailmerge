@@ -144,3 +144,37 @@ src/lib/
   the correct account.
 - Migration SQL for the User table + userId columns: `prisma/migrations/manual_multiuser_migration.sql`
   (must be run manually in Supabase SQL Editor, then backfilled with the first signed-up user's id).
+
+## UI Redesign — Google Stitch mockups (added August 2026)
+- **Status: design phase, not yet implemented into the live app.** Multi-user auth work is done and
+  live; the next phase is a visual redesign of every screen, generated via Google Stitch, then
+  manually implemented into the real Next.js code (Stitch is a UI-generator only — it never touches
+  the actual codebase).
+- Design direction: "Refined Arctic Minimal" — a more polished version of the existing black/white
+  monochrome theme (better spacing, typography, subtle details), no new color theme.
+- **Switching to Tailwind CSS** (currently CSS Modules) — chosen because Stitch exports Tailwind
+  natively, making future iterations easier to merge.
+- Static Stitch-exported HTML mockups (raw Tailwind CDN + Material Symbols, not yet wired to real
+  data or components) are saved for reference at `design/stitch-mockups/`:
+  - `login.html`, `signup.html` — full-viewport split-panel auth screens (black brand panel left,
+    form right). Email/password only — no Google/social sign-in, no terms checkbox (not real features).
+  - `home.html` — sidebar + top bar, welcome header, 4 stat cards (Campaigns/Sent/Open Rate/Follow-ups),
+    recent campaigns grid.
+  - `account.html` — Profile card + Gmail Connection card (matches real `/api/account` fields).
+  - `campaigns-list.html` — campaign card grid with real app metrics only (no credits/billing).
+  - `campaign-detail.html` — two-panel layout: recipients table (65%, expandable rows showing
+    per-recipient send/open/follow-up timeline) + Send Settings / Follow-up cards (35%). Follow-up
+    targeting matches the real opened/not-opened logic — no fictional "sequence steps".
+  - `compose.html` — template list (240px) + editor canvas with Tiptap-style toolbar (bold/italic/
+    strikethrough), placeholder syntax, attachment dropzone (PDF/Word/Excel/images), autosave
+    indicator. No test-send or discard buttons (app has neither).
+  - `dashboard.html` — filter bar + compact stat row + sortable recipients table with an
+    "Opened At" column (no click-tracking column — the app only tracks opens, not clicks).
+- **Consistency rules applied across all 8 mockups** (fixes from earlier Stitch drafts that had to
+  be corrected): sidebar-only nav, minimal top bar with just a page title/breadcrumb + a solid dark
+  circular initials avatar (no notification bell, no help icon, no stock photos), and no invented
+  features — no OAuth/social login, no subscription tiers, no credit/billing system, no click-rate
+  or reply tracking, no multi-step drip sequences. Every number/feature shown should map to something
+  the real app actually does.
+- Next step: convert these mockups' Tailwind markup into the real `page.tsx` / component files
+  (replacing CSS Modules), wiring up real state/API calls, keeping functionality identical.
