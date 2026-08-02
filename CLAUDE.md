@@ -145,11 +145,34 @@ src/lib/
 - Migration SQL for the User table + userId columns: `prisma/migrations/manual_multiuser_migration.sql`
   (must be run manually in Supabase SQL Editor, then backfilled with the first signed-up user's id).
 
-## UI Redesign — Google Stitch mockups (added August 2026)
-- **Status: design phase, not yet implemented into the live app.** Multi-user auth work is done and
-  live; the next phase is a visual redesign of every screen, generated via Google Stitch, then
-  manually implemented into the real Next.js code (Stitch is a UI-generator only — it never touches
-  the actual codebase).
+## UI Redesign — Google Stitch mockups → Tailwind implementation (added August 2026)
+- **Status: implemented and live in `src/app/page.tsx`, `login/page.tsx`, `signup/page.tsx`.**
+  The app has been fully converted from CSS Modules to Tailwind CSS, and restyled to match the
+  "Refined Arctic Minimal" mockups in `design/stitch-mockups/`. `page.module.css` and
+  `auth.module.css` have been deleted — all styling is now Tailwind utility classes (plus a
+  few small shared class-string constants at the top of `page.tsx`: `cardCls`, `inputCls`,
+  `labelCls`, `btnPrimaryCls`, `btnGhostCls`, `badgeCls`, and small components `Avatar`,
+  `StatCard`, `EmptyState`, `StatusBadge`, `StatusDot`, `Toggle`).
+- `tailwind.config.js` defines the design tokens matching the mockups: `ink` (#111112),
+  `bg` (#f7f8fa), `surface`/`surface-low`/`surface-high`, `border` (#e8e9ec), `secondary`
+  (#5c5f60), `outline` (#77777b), plus `sidebar_expanded`/`sidebar_collapsed` spacing tokens.
+  Tailwind v3 is used (not v4) for compatibility with this Next.js 14 setup and the
+  Stitch-exported config style.
+- Every screen's top bar was unified to just a page label + a solid dark circular initials
+  avatar (fetched from `/api/auth/me`) — no notification bell, no help icon, no stock photos,
+  matching the finalized Stitch mockups.
+- Login/Signup now use the full-viewport split-panel layout from the mockups (black brand
+  panel left with dot-grid texture, form panel right) instead of the old centered-card auth
+  layout — no Google/social sign-in, no terms checkbox (neither is a real feature).
+- **All existing functionality was preserved 1:1** — every state variable, handler, effect,
+  and API call in `page.tsx` is unchanged from the pre-redesign version; only JSX
+  markup/classNames were rewritten. Verified with `npx next build` — it compiles successfully
+  (`✓ Compiled successfully`); the only remaining build errors are pre-existing implicit-`any`
+  TypeScript errors in API routes caused by Prisma Client types not being generated in this
+  sandbox (binary download blocked — same known limitation documented above), unrelated to
+  this redesign.
+- Previous phase note (for history): originally the Stitch mockups were design-phase-only
+  and not yet wired into real components.
 - Design direction: "Refined Arctic Minimal" — a more polished version of the existing black/white
   monochrome theme (better spacing, typography, subtle details), no new color theme.
 - **Switching to Tailwind CSS** (currently CSS Modules) — chosen because Stitch exports Tailwind

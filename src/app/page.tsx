@@ -1,6 +1,5 @@
 'use client'
 import React, { useState, useEffect, useRef } from 'react'
-import styles from './page.module.css'
 
 // ─── Types ───────────────────────────────────────────────
 interface Template { id: string; name: string; subject: string; body: string; updatedAt: string; attachmentName?: string; attachmentUrl?: string }
@@ -9,6 +8,71 @@ interface Recipient { id: string; email: string; data: any; status: string; sent
 
 type Tab = 'home' | 'campaigns' | 'compose' | 'dashboard' | 'account'
 
+// ─── Shared UI bits ──────────────────────────────────────
+const cardCls = "bg-white border border-border rounded-xl p-6 shadow-ambient"
+const inputCls = "w-full px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:border-ink focus:ring-2 focus:ring-ink/5 transition-all"
+const labelCls = "block text-xs font-medium text-secondary mb-1.5"
+const btnPrimaryCls = "px-4 py-2 bg-ink text-white text-sm font-medium rounded-lg hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+const btnGhostCls = "px-4 py-2 bg-white border border-border text-ink text-sm font-medium rounded-lg hover:bg-surface-low transition-all disabled:opacity-50"
+const badgeCls = "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium"
+
+function Avatar({ initial }: { initial: string }) {
+  return (
+    <div className="h-8 w-8 rounded-full bg-ink flex items-center justify-center text-white font-semibold text-sm shrink-0">
+      {initial}
+    </div>
+  )
+}
+
+function StatCard({ label, value }: { label: string, value: string | number }) {
+  return (
+    <div className="bg-white border border-border rounded-xl p-5 shadow-ambient">
+      <p className="text-2xl font-black text-ink leading-none mb-2">{value}</p>
+      <p className="text-xs uppercase tracking-wider text-secondary">{label}</p>
+    </div>
+  )
+}
+
+function EmptyState({ icon, title, text, action }: { icon: string, title: string, text: string, action?: React.ReactNode }) {
+  return (
+    <div className="flex flex-col items-center justify-center text-center py-16 px-6">
+      <div className="text-3xl mb-3 text-secondary">{icon}</div>
+      <div className="text-base font-semibold text-ink mb-1">{title}</div>
+      <div className="text-sm text-secondary mb-4">{text}</div>
+      {action}
+    </div>
+  )
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    opened:  "bg-green-50 text-green-700",
+    sent:    "bg-surface-low text-ink",
+    pending: "bg-orange-50 text-orange-600",
+    error:   "bg-red-50 text-accentRed",
+  }
+  const label: Record<string, string> = {
+    opened: '✓ Opened', sent: '✓ Sent', pending: '· Pending', error: '✗ Error'
+  }
+  return <span className={`${badgeCls} ${map[status] || map.pending}`}>{label[status] || status}</span>
+}
+
+function StatusDot({ status }: { status: string }) {
+  const color: Record<string, string> = { draft: 'bg-outline', sending: 'bg-accentOrange', done: 'bg-green-500', scheduled: 'bg-accentOrange' }
+  return <span className={`w-2 h-2 rounded-full ${color[status] || 'bg-outline'}`} />
+}
+
+function Toggle({ on, onToggle }: { on: boolean, onToggle: () => void }) {
+  return (
+    <button
+      onClick={onToggle}
+      className={`relative w-10 h-6 rounded-full transition-colors ${on ? 'bg-ink' : 'bg-border'}`}
+    >
+      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${on ? 'translate-x-4' : ''}`} />
+    </button>
+  )
+}
+
 export default function App() {
   const [tab, setTab]               = useState<Tab>('home')
   const [templates, setTemplates]   = useState<Template[]>([])
@@ -16,9 +80,14 @@ export default function App() {
   const [toast, setToast]           = useState<{msg: string, type: 'success'|'error'|'info'} | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [showWelcome, setShowWelcome] = useState(true)
+  const [userInitial, setUserInitial] = useState('A')
 
-  // Load data immediately — even before welcome is dismissed so it's ready instantly
-  useEffect(() => { loadTemplates(); loadCampaigns() }, [])
+  useEffect(() => {
+    loadTemplates(); loadCampaigns()
+    fetch('/api/auth/me').then(r => r.json()).then(d => {
+      if (d?.user?.name) setUserInitial(d.user.name.trim()[0]?.toUpperCase() || 'A')
+    }).catch(() => {})
+  }, [])
 
   async function loadTemplates() {
     const r = await fetch('/api/templates'); setTemplates(await r.json())
@@ -32,162 +101,163 @@ export default function App() {
     setTimeout(() => setToast(null), 3500)
   }
 
+  const navItems: [Tab, React.ReactNode, string][] = [
+    ['home', (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    ), 'Home'],
+    ['campaigns', (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+    ), 'Campaigns'],
+    ['compose', (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+    ), 'Templates'],
+    ['dashboard', (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    ), 'Dashboard'],
+    ['account', (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+    ), 'Account'],
+  ]
+
+  const sidebarWidth = sidebarOpen ? 'w-[220px]' : 'w-[60px]'
+  const mainMargin   = sidebarOpen ? 'ml-[220px]' : 'ml-[60px]'
+  const tabLabel: Record<Tab,string> = { home: 'Home', campaigns: 'Campaigns', compose: 'Compose', dashboard: 'Dashboard', account: 'Account' }
+
   return (
-    <div className={styles.app}>
+    <div className="min-h-screen bg-bg text-ink">
       {/* Welcome Screen */}
       {showWelcome && (
-        <div className={styles.welcome}>
-          <div className={styles.welcomeCard}>
-            {/* Logo */}
-            <div className={styles.welcomeLogo}>
-              <div className={styles.welcomeLogoIcon}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+        <div className="fixed inset-0 z-50 bg-ink flex items-center justify-center p-6">
+          <div className="w-full max-w-[420px] bg-white rounded-2xl p-10 text-center">
+            <div className="flex items-center justify-center gap-2 mb-6">
+              <div className="w-9 h-9 bg-ink rounded-lg flex items-center justify-center">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                   <rect x="2" y="4" width="20" height="16" rx="3" stroke="white" strokeWidth="1.8"/>
                   <path d="M2 8l10 6 10-6" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
                 </svg>
               </div>
-              <div className={styles.welcomeLogoText}>Mail Merge</div>
-              <div className={styles.welcomeLogoPro}>PRO</div>
+              <div className="text-lg font-semibold text-ink">Mail Merge <span className="text-secondary font-normal">PRO</span></div>
             </div>
-
-            {/* Headline */}
-            <h1 className={styles.welcomeTitle}>Send smarter.<br/>Track what matters.</h1>
-            <p className={styles.welcomeSub}>Personalised email campaigns with open tracking, scheduled sending, and CSV exports — all in one place.</p>
-
-            {/* Features */}
-            <div className={styles.welcomeFeatures}>
+            <h1 className="text-2xl font-semibold text-ink leading-tight mb-3">Send smarter.<br/>Track what matters.</h1>
+            <p className="text-sm text-secondary mb-6">Personalised email campaigns with open tracking, scheduled sending, and CSV exports — all in one place.</p>
+            <div className="grid grid-cols-2 gap-3 mb-8 text-left">
               {[
                 ['📄', 'Templates with placeholders'],
                 ['📊', 'Open tracking & analytics'],
                 ['📎', 'File attachments per template'],
                 ['⏰', 'Scheduled sending'],
               ].map(([icon, label]) => (
-                <div key={label as string} className={styles.welcomeFeature}>
-                  <span className={styles.welcomeFeatureIcon}>{icon}</span>
-                  <span>{label}</span>
+                <div key={label} className="flex items-center gap-2 text-xs text-secondary bg-surface-low rounded-lg px-3 py-2">
+                  <span>{icon}</span><span>{label}</span>
                 </div>
               ))}
             </div>
-
-            {/* CTA */}
-            <button className={styles.welcomeBtn} onClick={() => setShowWelcome(false)}>
+            <button className={`${btnPrimaryCls} w-full flex items-center justify-center gap-2`} onClick={() => setShowWelcome(false)}>
               Get Started
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
             </button>
-            <p className={styles.welcomeNote}>Your campaigns, your data, your Gmail</p>
+            <p className="text-xs text-outline mt-4">Your campaigns, your data, your Gmail</p>
           </div>
         </div>
       )}
 
-      {/* Main App */}
       {!showWelcome && (<>
-      {/* Sidebar */}
-      <aside
-        className={`${styles.sidebar} ${sidebarOpen ? styles.sidebarOpen : styles.sidebarCollapsed}`}
-      >
-        {/* Logo */}
-        <div className={styles.logo}>
-          <div className={styles.logoIcon} onClick={() => window.location.reload()} style={{cursor:'pointer'}} title="Go to home">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <rect x="2" y="4" width="20" height="16" rx="3" stroke="white" strokeWidth="1.8"/>
-              <path d="M2 8l10 6 10-6" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
-            </svg>
+        {/* Sidebar */}
+        <aside className={`fixed left-0 top-0 h-full ${sidebarWidth} border-r border-border bg-white flex flex-col py-6 z-40 transition-all duration-200`}>
+          <div className={`flex items-center gap-2 mb-8 ${sidebarOpen ? 'px-4' : 'px-0 justify-center'}`}>
+            <div className="w-8 h-8 bg-ink rounded-lg flex items-center justify-center cursor-pointer shrink-0" onClick={() => window.location.reload()} title="Go to home">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <rect x="2" y="4" width="20" height="16" rx="3" stroke="white" strokeWidth="1.8"/>
+                <path d="M2 8l10 6 10-6" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
+              </svg>
+            </div>
+            {sidebarOpen && (
+              <div className="leading-tight">
+                <div className="text-sm font-bold text-ink">Mail Merge</div>
+                <div className="text-[10px] uppercase tracking-widest text-secondary">Pro</div>
+              </div>
+            )}
+            {sidebarOpen && (
+              <button className="ml-auto text-secondary hover:text-ink transition-colors" onClick={() => setSidebarOpen(p => !p)} title="Collapse sidebar">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg>
+              </button>
+            )}
           </div>
+          {!sidebarOpen && (
+            <button className="text-secondary hover:text-ink transition-colors mx-auto mb-6" onClick={() => setSidebarOpen(p => !p)} title="Expand sidebar">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+          )}
+
+          <nav className="flex-1 space-y-1 px-2">
+            {navItems.map(([key, icon, label]) => (
+              <button
+                key={key}
+                onClick={() => setTab(key)}
+                title={!sidebarOpen ? label : undefined}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors
+                  ${tab === key
+                    ? 'bg-surface-low border-l-2 border-ink text-ink font-semibold'
+                    : 'text-secondary hover:text-ink hover:bg-surface-low'}
+                  ${sidebarOpen ? '' : 'justify-center'}`}
+              >
+                <span className="shrink-0">{icon}</span>
+                {sidebarOpen && <span>{label}</span>}
+              </button>
+            ))}
+          </nav>
+
           {sidebarOpen && (
-            <div className={styles.logoText}>
-              <div className={styles.logoTitle}>Mail Merge</div>
-              <div className={styles.logoPro}>PRO</div>
+            <div className="px-4 pt-4 mt-4 border-t border-border space-y-2 text-xs text-secondary">
+              <div className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-ink"/> {campaigns.length} campaigns</div>
+              <div className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-green-500"/> {templates.length} templates</div>
             </div>
           )}
-          <button
-            className={styles.sidebarToggleBtn}
-            onClick={() => setSidebarOpen(p => !p)}
-            title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-          >
-            {sidebarOpen ? (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg>
-            ) : (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
+        </aside>
+
+        {/* Main */}
+        <div className={`${mainMargin} transition-all duration-200`}>
+          {/* Top bar: minimal — page title + initials avatar only */}
+          <header className="h-16 flex items-center justify-between px-8 border-b border-border bg-bg sticky top-0 z-30">
+            <span className="text-sm font-medium text-secondary">{tabLabel[tab]}</span>
+            <Avatar initial={userInitial} />
+          </header>
+
+          <main className="p-8 max-w-[1200px]">
+            {tab === 'home' && (
+              <HomeTab campaigns={campaigns} setTab={setTab} onRefresh={() => { loadCampaigns(); loadTemplates(); showToast('Refreshed!', 'info') }} />
             )}
-          </button>
+            {tab === 'campaigns' && (
+              <CampaignsTab
+                campaigns={campaigns}
+                templates={templates}
+                onRefresh={() => { loadCampaigns(); loadTemplates() }}
+                showToast={showToast}
+              />
+            )}
+            {tab === 'compose' && (
+              <ComposeTab
+                templates={templates}
+                onSaved={() => { loadTemplates() }}
+                showToast={showToast}
+              />
+            )}
+            {tab === 'dashboard' && (
+              <DashboardTab campaigns={campaigns} showToast={showToast} />
+            )}
+            {tab === 'account' && (
+              <AccountTab showToast={showToast} />
+            )}
+          </main>
         </div>
 
-        <nav className={styles.nav}>
-          {([
-            ['home', (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-            ), 'Home'],
-            ['campaigns', (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-            ), 'Campaigns'],
-            ['compose', (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            ), 'Templates'],
-            ['dashboard', (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-            ), 'Dashboard'],
-            ['account', (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
-            ), 'Account'],
-          ] as [Tab, React.ReactNode, string][]).map(([key, icon, label]) => (
-            <button
-              key={key}
-              className={`${styles.navItem} ${tab === key ? styles.navActive : ''}`}
-              onClick={() => setTab(key)}
-              title={!sidebarOpen ? label : undefined}
-            >
-              <span className={styles.navIcon}>{icon}</span>
-              {sidebarOpen && <span className={styles.navLabel}>{label}</span>}
-            </button>
-          ))}
-        </nav>
-
-        <div className={`${styles.sidebarStats} ${sidebarOpen ? '' : styles.sidebarStatsCollapsed}`}>
-          <div className={styles.statPill}>
-            <span className={styles.statDot} style={{background:'var(--accent)'}}></span>
-            {sidebarOpen && <span>{campaigns.length} campaigns</span>}
+        {/* Toast */}
+        {toast && (
+          <div className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-lg text-sm font-medium shadow-lg flex items-center gap-2
+            ${toast.type === 'success' ? 'bg-ink text-white' : toast.type === 'error' ? 'bg-accentRed text-white' : 'bg-white border border-border text-ink'}`}>
+            {toast.type === 'success' ? '✓' : toast.type === 'error' ? '✗' : 'i'} {toast.msg}
           </div>
-          <div className={styles.statPill}>
-            <span className={styles.statDot} style={{background:'var(--green)'}}></span>
-            {sidebarOpen && <span>{templates.length} templates</span>}
-          </div>
-        </div>
-      </aside>
-
-      {/* Main */}
-      <main className={`${styles.main} ${!sidebarOpen ? styles.mainCollapsed : ''}`}>
-        {tab === 'home' && (
-          <HomeTab campaigns={campaigns} setTab={setTab} onRefresh={() => { loadCampaigns(); loadTemplates(); showToast('Refreshed!', 'info') }} />
         )}
-        {tab === 'campaigns' && (
-          <CampaignsTab
-            campaigns={campaigns}
-            templates={templates}
-            onRefresh={() => { loadCampaigns(); loadTemplates() }}
-            showToast={showToast}
-          />
-        )}
-        {tab === 'compose' && (
-          <ComposeTab
-            templates={templates}
-            onSaved={() => { loadTemplates() }}
-            showToast={showToast}
-          />
-        )}
-        {tab === 'dashboard' && (
-          <DashboardTab campaigns={campaigns} showToast={showToast} />
-        )}
-        {tab === 'account' && (
-          <AccountTab showToast={showToast} />
-        )}
-      </main>
-
-      {/* Toast */}
-      {toast && (
-        <div className={`${styles.toast} ${styles['toast_' + toast.type]}`}>
-          {toast.type === 'success' ? '✓' : toast.type === 'error' ? '✗' : 'i'} {toast.msg}
-        </div>
-      )}
       </>)}
     </div>
   )
@@ -198,6 +268,7 @@ function AccountTab({ showToast }: any) {
   const [user, setUser] = useState<any>(null)
   const [gmailAddress, setGmailAddress] = useState('')
   const [appPassword, setAppPassword] = useState('')
+  const [showPw, setShowPw] = useState(false)
   const [connected, setConnected] = useState(false)
   const [savedEmail, setSavedEmail] = useState('')
   const [loading, setLoading] = useState(false)
@@ -246,67 +317,62 @@ function AccountTab({ showToast }: any) {
   }
 
   return (
-    <div style={{ maxWidth: 520 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Account</h1>
-      <p style={{ color: 'var(--text2)', fontSize: 13, marginBottom: 24 }}>
-        {user ? `Logged in as ${user.name} (${user.email})` : 'Loading…'}
+    <div className="max-w-[500px]">
+      <h1 className="text-2xl font-semibold text-ink mb-1">Account</h1>
+      <p className="text-sm text-secondary mb-6">
+        {user ? `${user.name} · ${user.email}` : 'Loading…'}
       </p>
 
-      <div className={styles.card} style={{ marginBottom: 16 }}>
-        <div className={styles.cardHeader}>
-          <div className={styles.cardTitle}>Gmail connection</div>
+      <div className={`${cardCls} mb-4`}>
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-semibold text-ink">Gmail Connection</h2>
+          <span className={`${badgeCls} ${connected ? 'bg-green-50 text-green-700' : 'bg-surface-low text-secondary'}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-500' : 'bg-outline'}`} />
+            {connected ? 'Connected' : 'Not connected'}
+          </span>
         </div>
 
         {connected && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, fontSize: 13.5 }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green)', display: 'inline-block' }} />
+          <div className="text-sm text-ink mb-4">
             Connected as <strong>{savedEmail}</strong>
           </div>
         )}
 
-        <form onSubmit={handleConnect}>
-          <div className={styles.formGroup}>
-            <label className={styles.label}>Gmail address</label>
-            <input
-              className={styles.input}
-              type="email"
-              required
-              value={gmailAddress}
-              onChange={e => setGmailAddress(e.target.value)}
-              placeholder="you@gmail.com"
-            />
+        <form onSubmit={handleConnect} className="space-y-4">
+          <div>
+            <label className={labelCls}>Gmail Address</label>
+            <input className={inputCls} type="email" required value={gmailAddress} onChange={e => setGmailAddress(e.target.value)} placeholder="you@gmail.com" />
           </div>
-          <div className={styles.formGroup}>
-            <label className={styles.label}>App Password</label>
-            <input
-              className={styles.input}
-              type="password"
-              required
-              value={appPassword}
-              onChange={e => setAppPassword(e.target.value)}
-              placeholder="16-character App Password"
-            />
+          <div>
+            <label className={labelCls}>App Password</label>
+            <div className="relative">
+              <input className={inputCls} type={showPw ? 'text' : 'password'} required value={appPassword} onChange={e => setAppPassword(e.target.value)} placeholder="16-character App Password" />
+              <button type="button" onClick={() => setShowPw(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary hover:text-ink transition-colors text-sm">
+                {showPw ? '🙈' : '👁'}
+              </button>
+            </div>
+            <p className="text-xs text-outline mt-1.5">Use a 16-digit Google App Password for secure access.</p>
           </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            <button className={styles.btnPrimary} type="submit" disabled={loading}>
-              {loading ? 'Connecting…' : connected ? 'Update connection' : 'Connect Gmail'}
+          <div className="flex gap-2 pt-1">
+            <button className={btnPrimaryCls} type="submit" disabled={loading}>
+              {loading ? 'Connecting…' : connected ? 'Update connection' : 'Verify & Connect'}
             </button>
             {connected && (
-              <button type="button" className={styles.btnGhost} onClick={handleDisconnect}>
+              <button type="button" className="text-sm text-accentRed hover:underline underline-offset-4" onClick={handleDisconnect}>
                 Disconnect
               </button>
             )}
           </div>
         </form>
 
-        <p style={{ marginTop: 16, fontSize: 12, color: 'var(--text3)', lineHeight: 1.6 }}>
+        <p className="mt-5 text-xs text-outline leading-relaxed">
           Don't have an App Password? Go to your Google Account → Security → 2-Step Verification →
           App Passwords, generate one for "Mail", and paste the 16-character code above.
           Your password is stored encrypted and is only used to send your own campaigns.
         </p>
       </div>
 
-      <button className={styles.btnGhost} onClick={handleLogout}>Log out</button>
+      <button className={btnGhostCls} onClick={handleLogout}>Log out</button>
     </div>
   )
 }
@@ -320,85 +386,69 @@ function HomeTab({ campaigns, setTab, onRefresh }: any) {
   const recentCampaigns = [...campaigns].sort((a: Campaign, b: Campaign) =>
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   ).slice(0, 5)
-  const statusColor: any = { draft: 'var(--text3)', sending: 'var(--orange)', done: 'var(--green)', scheduled: 'var(--purple)' }
 
   return (
-    <div className={styles.tabContent}>
-      <div className={styles.pageHeader}>
+    <div>
+      <div className="flex items-end justify-between mb-6">
         <div>
-          <h1 className={styles.pageTitle}>Home</h1>
-          <p className={styles.pageSubtitle}>Overview of your outreach activity</p>
+          <h1 className="text-3xl font-semibold text-ink tracking-tight">Welcome back</h1>
+          <p className="text-sm text-secondary mt-1">Here is a snapshot of your mail merge activities.</p>
         </div>
-        <button className={styles.refreshBtn} onClick={onRefresh}>
-          <span className={styles.refreshIcon}>↻</span> Refresh
-        </button>
+        <button className={btnGhostCls} onClick={onRefresh}>↻ Refresh</button>
       </div>
 
-      {/* Stat cards */}
-      <div className={styles.statCards} style={{marginBottom:20}}>
-        {[
-          { label: 'Total Campaigns', value: totalCampaigns, accent: '#111112' },
-          { label: 'Total Sent',      value: totalSent,      accent: '#3b82f6' },
-          { label: 'Total Opened',    value: totalOpened,    accent: '#16a34a' },
-          { label: 'Avg Open Rate',   value: openRate + '%', accent: '#7c3aed' },
-        ].map(s => (
-          <div key={s.label} className={styles.statCard}>
-            <div className={styles.statAccent} style={{background: s.accent}}></div>
-            <div className={styles.statNum}>{s.value}</div>
-            <div className={styles.statLabel}>{s.label}</div>
-          </div>
-        ))}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <StatCard label="Total Campaigns" value={totalCampaigns} />
+        <StatCard label="Emails Sent" value={totalSent} />
+        <StatCard label="Total Opened" value={totalOpened} />
+        <StatCard label="Open Rate %" value={openRate + '%'} />
       </div>
 
-      {/* Quick actions */}
-      <div style={{display:'flex', gap:10, marginBottom:20}}>
-        <button className={styles.btnPrimary} onClick={() => setTab('campaigns')}>+ New Campaign</button>
-        <button className={styles.btnGhost} onClick={() => setTab('compose')}>+ New Template</button>
-        <button className={styles.btnGhost} onClick={() => setTab('dashboard')}>View Analytics</button>
+      <div className="flex gap-3 mb-8">
+        <button className={btnPrimaryCls} onClick={() => setTab('campaigns')}>+ New Campaign</button>
+        <button className={btnGhostCls} onClick={() => setTab('compose')}>+ New Template</button>
+        <button className={btnGhostCls} onClick={() => setTab('dashboard')}>View Analytics</button>
       </div>
 
-      {/* Recent campaigns */}
-      <div className={styles.card}>
-        <div className={styles.cardHeader}>
-          <div className={styles.cardTitle}>Recent Campaigns</div>
-          <button className={styles.btnGhost} style={{fontSize:11,padding:'3px 8px'}} onClick={() => setTab('campaigns')}>View all</button>
+      <div className={cardCls}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-ink">Recent Campaigns</h2>
+          <button className="text-sm text-ink underline underline-offset-4 decoration-border hover:decoration-ink transition-all" onClick={() => setTab('campaigns')}>View all</button>
         </div>
         {!recentCampaigns.length ? (
-          <div className={styles.empty} style={{padding:'30px 20px'}}>
-            <div className={styles.emptyIcon}>◈</div>
-            <div className={styles.emptyTitle}>No campaigns yet</div>
-            <div className={styles.emptyText}>Create your first campaign to get started</div>
-          </div>
+          <EmptyState icon="◈" title="No campaigns yet" text="Create your first campaign to get started" />
         ) : (
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Campaign</th>
-                <th>Template</th>
-                <th>Sent</th>
-                <th>Opened</th>
-                <th>Open Rate</th>
-                <th>Status</th>
-                <th>Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentCampaigns.map((c: Campaign) => {
-                const rate = c.sent ? Math.round((c.opened / c.sent) * 100) : 0
-                return (
-                  <tr key={c.id} style={{cursor:'pointer'}} onClick={() => setTab('campaigns')}>
-                    <td className={styles.emailCell}>{c.name}</td>
-                    <td>{c.template?.name}</td>
-                    <td>{c.sent}</td>
-                    <td>{c.opened}</td>
-                    <td>{c.sent ? `${rate}%` : '—'}</td>
-                    <td><span className={styles.badge} style={{background: statusColor[c.status] + '22', color: statusColor[c.status]}}>{c.status}</span></td>
-                    <td className={styles.dateCell}>{new Date(c.createdAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short',year:'numeric'})}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="text-xs text-secondary uppercase border-b border-border">
+                  <th className="py-2 pr-4 font-semibold">Campaign</th>
+                  <th className="py-2 pr-4 font-semibold">Template</th>
+                  <th className="py-2 pr-4 font-semibold">Sent</th>
+                  <th className="py-2 pr-4 font-semibold">Opened</th>
+                  <th className="py-2 pr-4 font-semibold">Open Rate</th>
+                  <th className="py-2 pr-4 font-semibold">Status</th>
+                  <th className="py-2 font-semibold">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {recentCampaigns.map((c: Campaign) => {
+                  const rate = c.sent ? Math.round((c.opened / c.sent) * 100) : 0
+                  return (
+                    <tr key={c.id} className="cursor-pointer hover:bg-surface-low transition-colors" onClick={() => setTab('campaigns')}>
+                      <td className="py-3 pr-4 font-medium text-ink">{c.name}</td>
+                      <td className="py-3 pr-4 text-secondary">{c.template?.name}</td>
+                      <td className="py-3 pr-4">{c.sent}</td>
+                      <td className="py-3 pr-4">{c.opened}</td>
+                      <td className="py-3 pr-4">{c.sent ? `${rate}%` : '—'}</td>
+                      <td className="py-3 pr-4"><span className="inline-flex items-center gap-1.5 text-xs"><StatusDot status={c.status}/>{c.status}</span></td>
+                      <td className="py-3 text-secondary">{new Date(c.createdAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short',year:'numeric'})}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>
@@ -416,7 +466,6 @@ function CampaignsTab({ campaigns: initialCampaigns, templates, onRefresh, showT
 
   useEffect(() => { setLocalCampaigns(initialCampaigns || []) }, [initialCampaigns])
 
-  // Prefetch recipients on hover so click is instant
   function prefetchRecipients(campaignId: string) {
     if (recipientsCache.current[campaignId]) return
     fetch(`/api/recipients?campaignId=${campaignId}`)
@@ -440,7 +489,7 @@ function CampaignsTab({ campaigns: initialCampaigns, templates, onRefresh, showT
 
   function deleteCampaign(id: string) {
     if (!confirm('Delete this campaign?')) return
-    setLocalCampaigns(prev => prev.filter(c => c.id !== id)) // instant remove
+    setLocalCampaigns(prev => prev.filter(c => c.id !== id))
     if (selected?.id === id) setSelected(null)
     showToast('Campaign deleted')
     fetch(`/api/campaigns?id=${id}`, { method: 'DELETE' })
@@ -468,8 +517,6 @@ function CampaignsTab({ campaigns: initialCampaigns, templates, onRefresh, showT
     showToast(`Cancelled ${d.cancelledCount} pending emails`)
   }
 
-  const statusColor: any = { draft: 'var(--text3)', sending: 'var(--orange)', done: 'var(--green)', scheduled: 'var(--purple)' }
-
   if (selected) return (
     <CampaignDetail
       campaign={selected}
@@ -481,75 +528,72 @@ function CampaignsTab({ campaigns: initialCampaigns, templates, onRefresh, showT
   )
 
   return (
-    <div className={styles.tabContent}>
-      <div className={styles.pageHeader}>
+    <div>
+      <div className="flex items-end justify-between mb-6">
         <div>
-          <h1 className={styles.pageTitle}>Campaigns</h1>
-          <p className={styles.pageSubtitle}>Manage and send your mail merge campaigns</p>
+          <h1 className="text-3xl font-semibold text-ink tracking-tight">Campaigns</h1>
+          <p className="text-sm text-secondary mt-1">Manage and send your mail merge campaigns</p>
         </div>
-        <div style={{display:'flex', gap:8}}>
-          <button className={styles.refreshBtn} onClick={() => { onRefresh(); showToast('Refreshed!', 'info') }}>
-            <span className={styles.refreshIcon}>↻</span> Refresh
-          </button>
-          <button className={styles.btnPrimary} onClick={() => setCreating(true)}>+ New Campaign</button>
+        <div className="flex gap-2">
+          <button className={btnGhostCls} onClick={() => { onRefresh(); showToast('Refreshed!', 'info') }}>↻ Refresh</button>
+          <button className={btnPrimaryCls} onClick={() => setCreating(true)}>+ New Campaign</button>
         </div>
       </div>
 
       {creating && (
-        <div className={styles.card} style={{marginBottom:16, maxWidth:480}}>
-          <div className={styles.cardTitle}>New Campaign</div>
-          <div className={styles.formGroup}>
-            <label className={styles.label}>Campaign Name</label>
-            <input className={styles.input} value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. Prof Outreach Jan 2025" autoFocus />
+        <div className={`${cardCls} mb-4 max-w-[480px]`}>
+          <h2 className="text-lg font-semibold text-ink mb-4">New Campaign</h2>
+          <div className="mb-4">
+            <label className={labelCls}>Campaign Name</label>
+            <input className={inputCls} value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. Prof Outreach Jan 2025" autoFocus />
           </div>
-          <div className={styles.formGroup}>
-            <label className={styles.label}>Template</label>
-            <select className={styles.input} value={newTemplateId} onChange={e => setNewTemplate(e.target.value)}>
+          <div className="mb-4">
+            <label className={labelCls}>Template</label>
+            <select className={inputCls} value={newTemplateId} onChange={e => setNewTemplate(e.target.value)}>
               <option value="">Select template…</option>
               {templates.map((t: Template) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
-          <div className={styles.formActions}>
-            <button className={styles.btnGhost} onClick={() => setCreating(false)}>Cancel</button>
-            <button className={styles.btnPrimary} onClick={createCampaign}>Create Campaign</button>
+          <div className="flex justify-end gap-2">
+            <button className={btnGhostCls} onClick={() => setCreating(false)}>Cancel</button>
+            <button className={btnPrimaryCls} onClick={createCampaign}>Create Campaign</button>
           </div>
         </div>
       )}
 
       {!localCampaigns.length ? (
-        <div className={styles.empty}>
-          <div className={styles.emptyIcon}>◈</div>
-          <div className={styles.emptyTitle}>No campaigns yet</div>
-          <div className={styles.emptyText} style={{marginBottom:16}}>Create your first campaign to get started</div>
-          <button className={styles.btnPrimary} onClick={() => setCreating(true)}>+ New Campaign</button>
+        <div className={cardCls}>
+          <EmptyState icon="◈" title="No campaigns yet" text="Create your first campaign to get started"
+            action={<button className={btnPrimaryCls} onClick={() => setCreating(true)}>+ New Campaign</button>} />
         </div>
       ) : (
-        <div className={styles.cardGrid}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {localCampaigns.map((c: Campaign) => {
             const isScheduled = c.status === 'scheduled'
-            const accentColor: any = { draft: 'var(--border2)', sending: 'var(--orange)', done: 'var(--text)', scheduled: 'var(--orange)' }
             return (
-              <div key={c.id} className={styles.gridCard} onClick={() => { setSelected(c); setCreating(false) }} onMouseEnter={() => prefetchRecipients(c.id)}>
-                <div className={styles.gridCardAccent} style={{background: accentColor[c.status]}}></div>
-                <div className={styles.gridCardName}>{isScheduled && <span style={{marginRight:4}}>⏰</span>}{c.name}</div>
-                <div className={styles.gridCardSub}>{c.template?.name}</div>
-                <div className={styles.gridCardMeta}>
-                  <span className={styles.badge} style={{background: statusColor[c.status] + '22', color: statusColor[c.status]}}>{c.status}</span>
-                  {!isScheduled && <span className={styles.gridCardStat}><b>{c.sent}</b> sent · <b>{c.opened}</b> opened</span>}
-                  {isScheduled && c.scheduledAt && <span className={styles.gridCardStat} style={{color:'var(--orange)'}}>{new Date(c.scheduledAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})} {new Date(c.scheduledAt).toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:true})}</span>}
-                  <span className={styles.gridCardDate}>{new Date(c.createdAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})}</span>
+              <div key={c.id} className={`${cardCls} cursor-pointer hover:border-ink transition-all group relative`}
+                onClick={() => { setSelected(c); setCreating(false) }} onMouseEnter={() => prefetchRecipients(c.id)}>
+                <div className="flex items-start justify-between mb-3">
+                  <h3 className="font-semibold text-ink leading-tight">{isScheduled && '⏰ '}{c.name}</h3>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs bg-surface-low text-secondary shrink-0">
+                    <StatusDot status={c.status} />{c.status}
+                  </span>
                 </div>
-                <div className={styles.gridCardActions}>
-                  {(c as any).status === 'sending' || (c as any).status === 'scheduled' ? ((c as any).hasPending && (
-                    <button onClick={e => { e.stopPropagation(); cancelPending(c.id) }} className={styles.gridActionBtn} title="Cancel Pending" style={{color:'var(--red)'}}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="9"></circle>
-                        <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
-                      </svg>
+                <p className="text-sm text-secondary mb-4">{c.template?.name}</p>
+                <div className="flex items-center justify-between text-xs text-secondary pt-3 border-t border-border">
+                  {!isScheduled
+                    ? <span><b className="text-ink">{c.sent}</b> sent · <b className="text-ink">{c.opened}</b> opened</span>
+                    : c.scheduledAt && <span className="text-accentOrange">{new Date(c.scheduledAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})} {new Date(c.scheduledAt).toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:true})}</span>}
+                  <span>{new Date(c.createdAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})}</span>
+                </div>
+                <div className="absolute top-4 right-4 hidden group-hover:flex gap-1 bg-white rounded-lg shadow-ambient border border-border p-1">
+                  {(c.status === 'sending' || c.status === 'scheduled') && (c as any).hasPending && (
+                    <button onClick={e => { e.stopPropagation(); cancelPending(c.id) }} className="p-1.5 text-accentRed hover:bg-surface-low rounded" title="Cancel Pending">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="9"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
                     </button>
-                  )) : null}
-                  <button className={styles.gridActionBtn} onClick={e => { e.stopPropagation(); duplicateCampaign(c) }} title="Duplicate">⧉</button>
-                  <button className={styles.gridActionBtn} onClick={e => { e.stopPropagation(); deleteCampaign(c.id) }} title="Delete" style={{color:'var(--red)'}}>✕</button>
+                  )}
+                  <button className="p-1.5 text-secondary hover:bg-surface-low rounded" onClick={e => { e.stopPropagation(); duplicateCampaign(c) }} title="Duplicate">⧉</button>
+                  <button className="p-1.5 text-accentRed hover:bg-surface-low rounded" onClick={e => { e.stopPropagation(); deleteCampaign(c.id) }} title="Delete">✕</button>
                 </div>
               </div>
             )
@@ -710,7 +754,7 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
       body: JSON.stringify({
         campaignId: campaign.id,
         templateId: followUpTemplateId,
-        followUpType: isSelected ? 'not_opened' : showFollowUp, // type doesn't matter for selected
+        followUpType: isSelected ? 'not_opened' : showFollowUp,
         followUpLevel: isSelected ? 0 : followUpLevel,
         selectedIds: isSelected ? [...selectedRecipients] : null,
         scheduledAt: followUpScheduled && followUpScheduleAt ? new Date(followUpScheduleAt).toISOString() : null,
@@ -743,9 +787,7 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
   const pending    = recipients.filter(r => r.status === 'pending').length
   const sent       = recipients.filter(r => r.status === 'sent').length
   const opened     = recipients.filter(r => r.openedAt).length
-  const notOpened  = recipients.filter(r => r.status === 'sent' && !r.openedAt).length
 
-  // Group by followUpCount for each category
   function getFollowUpGroups(filterFn: (r: Recipient) => boolean) {
     const filtered = recipients.filter(r => r.status === 'sent' && filterFn(r))
     const groups: Record<number, number> = {}
@@ -760,72 +802,68 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
   const notOpenedGroups = getFollowUpGroups(r => !r.openedAt)
 
   return (
-    <div className={styles.tabContent}>
-      <div className={styles.pageHeader}>
-        <div style={{display:'flex',alignItems:'center',gap:12}}>
-          <button className={styles.backBtn} onClick={onBack}>←</button>
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-border bg-white hover:bg-surface-low transition-colors" onClick={onBack}>←</button>
           <div>
-            <div style={{display:'flex', alignItems:'center', gap:8}}>
-              <h1 className={styles.pageTitle}>{campaign.name}</h1>
-              <button className={styles.btnGhost} style={{padding:'3px 8px', fontSize:11}} onClick={() => setEditing(!editing)}>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-semibold text-ink">{campaign.name}</h1>
+              <button className="text-xs px-2 py-1 rounded-lg border border-border bg-white hover:bg-surface-low transition-colors" onClick={() => setEditing(!editing)}>
                 {editing ? 'Cancel' : 'Edit'}
               </button>
             </div>
-            <p className={styles.pageSubtitle}>{campaign.template?.name} · {campaign.template?.subject}</p>
+            <p className="text-sm text-secondary mt-0.5">{campaign.template?.name} · {campaign.template?.subject}</p>
           </div>
         </div>
-        <button className={styles.refreshBtn} onClick={() => { loadRecipients(); showToast('Refreshed!', 'info') }}>
-          <span className={styles.refreshIcon}>↻</span> Refresh
-        </button>
+        <button className={btnGhostCls} onClick={() => { loadRecipients(); showToast('Refreshed!', 'info') }}>↻ Refresh</button>
       </div>
 
-      {/* Scheduled banner removed — status shows in table */}
-
-      <div className={styles.detailGrid}>
+      <div className="flex gap-6 items-start">
         {/* Left — Recipients */}
-        <div className={styles.detailLeft}>
-          <div className={styles.card}>
-            <div className={styles.cardHeader}>
-              <div className={styles.cardTitle}>Recipients</div>
-              <div style={{display:'flex',gap:8}}>
-                {recipients.length > 0 && <button className={styles.btnGhost} onClick={clearRecipients}>Clear all</button>}
-              </div>
+        <div className="w-[65%] space-y-4">
+          <div className={cardCls}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-ink">Recipients</h2>
+              {recipients.length > 0 && <button className={btnGhostCls} onClick={clearRecipients}>Clear all</button>}
             </div>
 
-            {/* Import tabs */}
-            <div className={styles.importTabs}>
+            <div className="flex gap-1 mb-4 border-b border-border">
               {(['csv','sheet','manual'] as const).map(t => (
-                <button key={t} className={`${styles.importTab} ${importTab===t?styles.importTabActive:''}`} onClick={() => setImportTab(t)}>
+                <button key={t}
+                  className={`px-3 py-2 text-sm border-b-2 -mb-px transition-colors ${importTab===t ? 'border-ink text-ink font-medium' : 'border-transparent text-secondary hover:text-ink'}`}
+                  onClick={() => setImportTab(t)}>
                   {t === 'csv' ? '📄 CSV' : t === 'sheet' ? '📊 Google Sheet' : '✏️ Paste'}
                 </button>
               ))}
             </div>
 
             {importTab === 'csv' && (
-              <div className={styles.dropzone} onClick={() => fileRef.current?.click()}
+              <div className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-ink hover:bg-surface-low transition-all"
+                onClick={() => fileRef.current?.click()}
                 onDragOver={e => e.preventDefault()}
                 onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if(f) uploadCSV(f) }}>
-                <input ref={fileRef} type="file" accept=".csv" style={{display:'none'}} onChange={e => { if(e.target.files?.[0]) uploadCSV(e.target.files[0]) }} />
-                <div className={styles.dropzoneIcon}>⬆</div>
-                <div className={styles.dropzoneText}>Drop CSV file here or click to upload</div>
-                <div className={styles.dropzoneHint}>First row must be column headers</div>
+                <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={e => { if(e.target.files?.[0]) uploadCSV(e.target.files[0]) }} />
+                <div className="text-2xl text-secondary mb-2">⬆</div>
+                <div className="text-sm font-medium text-ink">Drop CSV file here or click to upload</div>
+                <div className="text-xs text-secondary mt-1">First row must be column headers</div>
               </div>
             )}
 
             {importTab === 'sheet' && (
-              <div className={styles.importPanel}>
-                <label className={styles.label}>Google Sheet URL</label>
-                <input className={styles.input} value={sheetUrl} onChange={e => setSheetUrl(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/..." />
-                <div className={styles.hint}>Sheet must be set to "Anyone with the link can view"</div>
-                <button className={styles.btnPrimary} style={{marginTop:10}} onClick={importSheet}>Import</button>
+              <div>
+                <label className={labelCls}>Google Sheet URL</label>
+                <input className={inputCls} value={sheetUrl} onChange={e => setSheetUrl(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/..." />
+                <div className="text-xs text-secondary mt-1.5">Sheet must be set to "Anyone with the link can view"</div>
+                <button className={`${btnPrimaryCls} mt-3`} onClick={importSheet}>Import</button>
               </div>
             )}
 
             {importTab === 'manual' && (
-              <div className={styles.importPanel}>
-                <label className={styles.label}>Paste tab-separated data (copy from Excel/Sheets)</label>
+              <div>
+                <label className={labelCls}>Paste tab-separated data (copy from Excel/Sheets)</label>
                 <textarea
-                  className={styles.textarea}
+                  className={`${inputCls} font-mono`}
                   rows={6}
                   value={manualText}
                   onChange={e => setManualText(e.target.value)}
@@ -844,30 +882,28 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
                   }}
                   placeholder={'Name\tEmail\tUniversity\nProf. Smith\tsmith@uni.edu\tMIT'}
                 />
-                <button className={styles.btnPrimary} style={{marginTop:10}} onClick={importManual}>Add Recipients</button>
+                <button className={`${btnPrimaryCls} mt-3`} onClick={importManual}>Add Recipients</button>
               </div>
             )}
 
-            {/* Stats bar */}
             {recipients.length > 0 && (
-              <div className={styles.recipientStats}>
+              <div className="flex items-center gap-2 text-xs text-secondary my-4">
                 <span>{recipients.length} total</span>
-                <span style={{color:'var(--text3)'}}>·</span>
-                <span style={{color:'var(--orange)'}}>{pending} pending</span>
-                <span style={{color:'var(--text3)'}}>·</span>
-                <span style={{color:'var(--accent)'}}>{sent} sent</span>
-                <span style={{color:'var(--text3)'}}>·</span>
-                <span style={{color:'var(--green)'}}>{opened} opened</span>
+                <span>·</span>
+                <span className="text-accentOrange">{pending} pending</span>
+                <span>·</span>
+                <span className="text-ink">{sent} sent</span>
+                <span>·</span>
+                <span className="text-green-600">{opened} opened</span>
               </div>
             )}
 
-            {/* Recipients table */}
             {recipients.length > 0 && (
-              <div className={styles.tableContainer}>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th style={{width:32}}>
+              <div className="overflow-x-auto max-h-[295px] overflow-y-auto border border-border rounded-lg">
+                <table className="w-full text-left text-sm">
+                  <thead className="sticky top-0 bg-white z-10">
+                    <tr className="text-xs text-secondary uppercase border-b border-border">
+                      <th className="w-8 px-3 py-2">
                         <input type="checkbox"
                           checked={selectedRecipients.size === recipients.filter(r => r.status === 'sent').length && recipients.filter(r => r.status === 'sent').length > 0}
                           onChange={e => {
@@ -876,22 +912,21 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
                           }}
                         />
                       </th>
-                      <th>Email</th>
-                      {columns.slice(0,3).filter(c => !c.toLowerCase().includes('email')).map(c => <th key={c}>{c}</th>)}
-                      <th>Status</th>
-                      <th>Opened</th>
-                      <th>Follow-ups</th>
+                      <th className="px-3 py-2 font-semibold">Email</th>
+                      {columns.slice(0,3).filter(c => !c.toLowerCase().includes('email')).map(c => <th key={c} className="px-3 py-2 font-semibold">{c}</th>)}
+                      <th className="px-3 py-2 font-semibold text-center">Status</th>
+                      <th className="px-3 py-2 font-semibold text-center">Opened</th>
+                      <th className="px-3 py-2 font-semibold text-center">Follow-ups</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-border">
                     {recipients.map(r => (
                       <React.Fragment key={r.id}>
                       <tr
-                        key={r.id}
-                        style={{background: selectedRecipients.has(r.id) ? 'var(--bg3)' : '', cursor:'pointer'}}
+                        className={`cursor-pointer hover:bg-surface-low transition-colors ${selectedRecipients.has(r.id) ? 'bg-surface-low' : ''}`}
                         onClick={() => setExpandedRecipient(expandedRecipient === r.id ? null : r.id)}
                       >
-                        <td onClick={e => e.stopPropagation()}>
+                        <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
                           {r.status === 'sent' && (
                             <input type="checkbox"
                               checked={selectedRecipients.has(r.id)}
@@ -903,74 +938,67 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
                             />
                           )}
                         </td>
-                        <td className={styles.emailCell}>
-                          <span style={{display:'flex', alignItems:'center', gap:6}}>
+                        <td className="px-3 py-2 font-medium text-ink">
+                          <span className="flex items-center gap-1.5">
                             {(r as any).followUps?.length > 0 && (
-                              <span style={{fontSize:10, color:'var(--text3)'}}>{expandedRecipient === r.id ? '▾' : '▸'}</span>
+                              <span className="text-[10px] text-secondary">{expandedRecipient === r.id ? '▾' : '▸'}</span>
                             )}
                             {r.email}
                           </span>
                         </td>
                         {columns.slice(0,3).filter(c => !c.toLowerCase().includes('email')).map(c => (
-                          <td key={c}>{(r.data as any)[c] || '—'}</td>
+                          <td key={c} className="px-3 py-2">{(r.data as any)[c] || '—'}</td>
                         ))}
-                        <td>
-                          <span className={styles.statusBadge} data-status={r.openedAt ? 'opened' : r.status === 'pending' && campaign.status === 'scheduled' ? 'pending' : r.status}>
-                            {r.openedAt ? '✓ Opened' : r.status === 'sent' ? '✓ Sent' : r.status === 'error' ? '✗ Error' : campaign.status === 'scheduled' ? '⏰ Scheduled' : '· Pending'}
-                          </span>
+                        <td className="px-3 py-2 text-center">
+                          <StatusBadge status={r.openedAt ? 'opened' : r.status === 'pending' && campaign.status === 'scheduled' ? 'pending' : r.status} />
                         </td>
-                        <td>{r.openedAt ? <span style={{color:'var(--green)',fontSize:11}}>{new Date(r.openedAt).toLocaleString('en-PK',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true})}</span> : <span style={{color:'var(--text3)'}}>—</span>}</td>
-                        <td>
+                        <td className="px-3 py-2 text-center text-xs">
+                          {r.openedAt ? <span className="text-green-600">{new Date(r.openedAt).toLocaleString('en-PK',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true})}</span> : <span className="text-outline">—</span>}
+                        </td>
+                        <td className="px-3 py-2 text-center">
                           {(r as any).followUps?.length > 0 ? (
-                            <div style={{display:'flex', flexDirection:'column', gap:2}}>
+                            <div className="flex flex-col gap-0.5 items-center">
                               {(r as any).followUps.map((f: any) => (
-                                <span key={f.id} style={{fontSize:10, whiteSpace:'nowrap'}}>
-                                  <span style={{fontWeight:600, color:'var(--text2)'}}>#{f.number}</span>
-                                  {' '}
+                                <span key={f.id} className="text-[10px] whitespace-nowrap">
+                                  <span className="font-semibold text-secondary">#{f.number}</span>{' '}
                                   {f.status === 'scheduled'
-                                    ? <span style={{color:'var(--orange)'}}>⏰ {new Date(f.scheduledAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})} {new Date(f.scheduledAt).toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:true})}</span>
+                                    ? <span className="text-accentOrange">⏰ {new Date(f.scheduledAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})} {new Date(f.scheduledAt).toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:true})}</span>
                                     : f.status === 'sent' && f.openedAt
-                                      ? <span style={{color:'var(--green)'}}>✓ Opened</span>
+                                      ? <span className="text-green-600">✓ Opened</span>
                                       : f.status === 'sent'
-                                        ? <span style={{color:'var(--text3)'}}>✓ Sent</span>
-                                        : <span style={{color:'var(--red)'}}>✗ Error</span>}
+                                        ? <span className="text-outline">✓ Sent</span>
+                                        : <span className="text-accentRed">✗ Error</span>}
                                 </span>
                               ))}
                             </div>
-                          ) : <span style={{color:'var(--text3)', fontSize:11}}>—</span>}
+                          ) : <span className="text-outline text-xs">—</span>}
                         </td>
                       </tr>
-                      {/* Expanded timeline */}
                       {expandedRecipient === r.id && (r as any).followUps?.length > 0 && (
                         <tr key={r.id + '_timeline'}>
-                          <td colSpan={6 + columns.slice(0,3).filter(c => !c.toLowerCase().includes('email')).length} style={{padding:0, background:'var(--bg3)', borderBottom:'1px solid var(--border)'}}>
-                            <div style={{padding:'10px 16px 10px 48px'}}>
-                              {/* Original email */}
-                              <div style={{display:'flex', alignItems:'center', gap:12, padding:'6px 0', borderBottom:'1px dashed var(--border)', fontSize:12}}>
-                                <span style={{width:20, height:20, borderRadius:'50%', background:'var(--text)', color:'white', display:'flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, flexShrink:0}}>0</span>
-                                <span style={{color:'var(--text2)', flex:1}}>Original email</span>
-                                <span style={{color:'var(--text3)'}}>{r.sentAt ? new Date(r.sentAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'}) : '—'}</span>
-                                <span className={styles.statusBadge} data-status={r.openedAt ? 'opened' : 'sent'}>{r.openedAt ? '✓ Opened' : '✓ Sent'}</span>
+                          <td colSpan={6 + columns.slice(0,3).filter(c => !c.toLowerCase().includes('email')).length} className="p-0 bg-surface-low border-b border-border">
+                            <div className="py-3 pl-12 pr-4">
+                              <div className="flex items-center gap-3 py-1.5 border-b border-dashed border-border text-xs">
+                                <span className="w-5 h-5 rounded-full bg-ink text-white flex items-center justify-center text-[9px] font-bold shrink-0">0</span>
+                                <span className="text-secondary flex-1">Original email</span>
+                                <span className="text-outline">{r.sentAt ? new Date(r.sentAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'}) : '—'}</span>
+                                <StatusBadge status={r.openedAt ? 'opened' : 'sent'} />
                               </div>
-                              {/* Follow-ups */}
                               {(r as any).followUps.map((f: any) => (
-                                <div key={f.id} style={{display:'flex', alignItems:'center', gap:12, padding:'6px 0', borderBottom:'1px dashed var(--border)', fontSize:12}}>
-                                  <span style={{width:20, height:20, borderRadius:'50%', background: f.openedAt ? 'var(--green)' : f.status === 'scheduled' ? 'var(--orange)' : f.status === 'error' ? 'var(--red)' : 'var(--border2)', color: f.openedAt || f.status === 'scheduled' || f.status === 'error' ? 'white' : 'var(--text2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, flexShrink:0}}>#{f.number}</span>
-                                  <span style={{color:'var(--text2)', flex:1}}>{f.template?.name || 'Follow-up'}</span>
-                                  <span style={{color:'var(--text3)'}}>
+                                <div key={f.id} className="flex items-center gap-3 py-1.5 border-b border-dashed border-border text-xs">
+                                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0
+                                    ${f.openedAt ? 'bg-green-500 text-white' : f.status === 'scheduled' ? 'bg-accentOrange text-white' : f.status === 'error' ? 'bg-accentRed text-white' : 'bg-border text-secondary'}`}>
+                                    #{f.number}
+                                  </span>
+                                  <span className="text-secondary flex-1">{f.template?.name || 'Follow-up'}</span>
+                                  <span className="text-outline">
                                     {f.status === 'scheduled'
                                       ? `⏰ ${new Date(f.scheduledAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})} ${new Date(f.scheduledAt).toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:true})}`
                                       : f.sentAt ? new Date(f.sentAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'}) : '—'}
                                   </span>
-                                  <span className={styles.statusBadge} data-status={f.openedAt ? 'opened' : f.status === 'scheduled' ? 'pending' : f.status}>
-                                    {f.openedAt ? '✓ Opened' : f.status === 'scheduled' ? '⏰ Scheduled' : f.status === 'sent' ? '✓ Sent' : f.status === 'error' ? '✗ Error' : '· Pending'}
-                                  </span>
+                                  <StatusBadge status={f.openedAt ? 'opened' : f.status === 'scheduled' ? 'pending' : f.status} />
                                   {f.status === 'scheduled' && (
-                                    <button
-                                      onClick={e => { e.stopPropagation(); cancelFollowUp(f.id, r.id) }}
-                                      style={{background:'none', border:'none', color:'var(--red)', cursor:'pointer', fontSize:11, padding:'0 4px', flexShrink:0}}
-                                      title="Cancel scheduled follow-up"
-                                    >✕</button>
+                                    <button onClick={e => { e.stopPropagation(); cancelFollowUp(f.id, r.id) }} className="text-accentRed text-xs px-1" title="Cancel scheduled follow-up">✕</button>
                                   )}
                                 </div>
                               ))}
@@ -988,91 +1016,85 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
         </div>
 
         {/* Right — Send options or Edit */}
-        <div className={styles.detailRight}>
+        <div className="w-[35%] space-y-4">
           {editing ? (
-            <div className={styles.card}>
-              <div className={styles.cardTitle}>Edit Campaign</div>
-              <div className={styles.formGroup}>
-                <label className={styles.label}>Campaign Name</label>
-                <input className={styles.input} value={editName} onChange={e => setEditName(e.target.value)} placeholder="Campaign name" autoFocus />
+            <div className={cardCls}>
+              <h2 className="text-lg font-semibold text-ink mb-4">Edit Campaign</h2>
+              <div className="mb-4">
+                <label className={labelCls}>Campaign Name</label>
+                <input className={inputCls} value={editName} onChange={e => setEditName(e.target.value)} placeholder="Campaign name" autoFocus />
               </div>
-              <div className={styles.formGroup}>
-                <label className={styles.label}>Template</label>
-                <select className={styles.input} value={editTemplateId} onChange={e => setEditTemplateId(e.target.value)}>
+              <div className="mb-4">
+                <label className={labelCls}>Template</label>
+                <select className={inputCls} value={editTemplateId} onChange={e => setEditTemplateId(e.target.value)}>
                   {templates.map((t: Template) => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
               </div>
-              <div className={styles.formActions}>
-                <button className={styles.btnGhost} onClick={() => setEditing(false)}>Cancel</button>
-                <button className={styles.btnPrimary} onClick={saveCampaignEdit}>Update</button>
+              <div className="flex justify-end gap-2">
+                <button className={btnGhostCls} onClick={() => setEditing(false)}>Cancel</button>
+                <button className={btnPrimaryCls} onClick={saveCampaignEdit}>Update</button>
               </div>
             </div>
           ) : (<>
-          <div className={styles.card}>
-            <div className={styles.cardTitle}>Send Settings</div>
+          <div className={cardCls}>
+            <h2 className="text-lg font-semibold text-ink mb-4">Send Settings</h2>
 
-            <div className={styles.formGroup}>
-              <label className={styles.label}>From Name</label>
-              <input className={styles.input} value={fromName} onChange={e => setFromName(e.target.value)} placeholder="Your Name" />
+            <div className="mb-4">
+              <label className={labelCls}>From Name</label>
+              <input className={inputCls} value={fromName} onChange={e => setFromName(e.target.value)} placeholder="Your Name" />
             </div>
-            
-            <div className={styles.divider}></div>
 
-            <div className={styles.formGroup}>
-              <label className={styles.label}>Delay Between Emails</label>
-              <div className={styles.rangeRow}>
-                <input className={styles.input} type="number" value={delayMin} onChange={e => setDelayMin(+e.target.value)} min={5} />
-                <span className={styles.rangeSep}>to</span>
-                <input className={styles.input} type="number" value={delayMax} onChange={e => setDelayMax(+e.target.value)} min={5} />
-                <span className={styles.rangeUnit}>sec</span>
+            <div className="border-t border-border my-4"></div>
+
+            <div className="mb-4">
+              <label className={labelCls}>Delay Between Emails</label>
+              <div className="flex items-center gap-2">
+                <input className={inputCls} type="number" value={delayMin} onChange={e => setDelayMin(+e.target.value)} min={5} />
+                <span className="text-xs text-secondary shrink-0">to</span>
+                <input className={inputCls} type="number" value={delayMax} onChange={e => setDelayMax(+e.target.value)} min={5} />
+                <span className="text-xs text-secondary shrink-0">sec</span>
               </div>
             </div>
 
-            <div className={styles.divider}></div>
+            <div className="border-t border-border my-4"></div>
 
-            <div className={styles.toggleRow}>
-              <label className={styles.label}>Schedule for Later</label>
-              <button className={`${styles.toggle} ${useSchedule ? styles.toggleOn : ''}`} onClick={() => setUseSchedule(!useSchedule)}>
-                <span className={styles.toggleThumb}></span>
-              </button>
+            <div className="flex items-center justify-between mb-2">
+              <label className={`${labelCls} mb-0`}>Schedule for Later</label>
+              <Toggle on={useSchedule} onToggle={() => setUseSchedule(!useSchedule)} />
             </div>
 
             {useSchedule && (
-              <div className={styles.formGroup} style={{marginTop:10}}>
-                <label className={styles.label}>Send At</label>
-                <input className={styles.input} type="datetime-local" value={scheduleAt} onChange={e => setScheduleAt(e.target.value)} />
+              <div className="mt-3">
+                <label className={labelCls}>Send At</label>
+                <input className={inputCls} type="datetime-local" value={scheduleAt} onChange={e => setScheduleAt(e.target.value)} />
               </div>
             )}
 
-            <div className={styles.divider}></div>
+            <div className="border-t border-border my-4"></div>
 
             <button
-              className={styles.sendBtn}
+              className={`${btnPrimaryCls} w-full py-3`}
               onClick={startSend}
               disabled={sending || pending === 0}
             >
-              {sending ? (
-                <span className={styles.sendingDots}>Sending<span>...</span></span>
-              ) : useSchedule ? '📅 Schedule' : `🚀 Send to ${pending} recipients`}
+              {sending ? 'Sending...' : useSchedule ? '📅 Schedule' : `🚀 Send to ${pending} recipients`}
             </button>
 
             {campaign.status === 'done' && pending > 0 && (
-              <div className={styles.hint} style={{textAlign:'center',marginTop:8}}>
+              <div className="text-xs text-secondary text-center mt-2">
                 {pending} pending recipients — will send to them
               </div>
             )}
           </div>
 
-          {/* Follow-up Card */}
           {sent > 0 && (
-            <div className={styles.card} style={{marginTop:12}}>
-              <div className={styles.cardTitle}>Follow-up</div>
+            <div className={cardCls}>
+              <h2 className="text-lg font-semibold text-ink mb-4">Follow-up</h2>
 
-              {/* Single dropdown for group selection */}
-              <div className={styles.formGroup}>
-                <label className={styles.label}>Target Group</label>
+              <div className="mb-4">
+                <label className={labelCls}>Target Group</label>
                 <select
-                  className={styles.input}
+                  className={inputCls}
                   value={showFollowUp ? (selectedRecipients.size > 0 && showFollowUp === 'selected' ? 'selected' : `${showFollowUp}__${followUpLevel}`) : ''}
                   onChange={e => {
                     if (!e.target.value) { setShowFollowUp(null); setFollowUpTemplateId(''); return }
@@ -1110,54 +1132,43 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
 
               {showFollowUp && (
                 <>
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>Follow-up Template</label>
-                    <select className={styles.input} value={followUpTemplateId} onChange={e => setFollowUpTemplateId(e.target.value)}>
+                  <div className="mb-4">
+                    <label className={labelCls}>Follow-up Template</label>
+                    <select className={inputCls} value={followUpTemplateId} onChange={e => setFollowUpTemplateId(e.target.value)}>
                       <option value="">Select template…</option>
                       {allTemplates.map((t: Template) => <option key={t.id} value={t.id}>{t.name}</option>)}
                     </select>
                   </div>
 
-                  {/* Schedule toggle */}
-                  <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8}}>
-                    <label className={styles.label} style={{marginBottom:0}}>Schedule</label>
-                    <button
-                      className={`${styles.toggle} ${followUpScheduled ? styles.toggleOn : ''}`}
-                      onClick={() => setFollowUpScheduled(p => !p)}
-                    >
-                      <span className={styles.toggleThumb}/>
-                    </button>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className={`${labelCls} mb-0`}>Schedule</label>
+                    <Toggle on={followUpScheduled} onToggle={() => setFollowUpScheduled(p => !p)} />
                   </div>
                   {followUpScheduled && (
-                    <div className={styles.formGroup}>
-                      <input
-                        className={styles.input}
-                        type="datetime-local"
-                        value={followUpScheduleAt}
-                        onChange={e => setFollowUpScheduleAt(e.target.value)}
-                      />
+                    <div className="mb-3">
+                      <input className={inputCls} type="datetime-local" value={followUpScheduleAt} onChange={e => setFollowUpScheduleAt(e.target.value)} />
                     </div>
                   )}
 
-                  <div className={styles.hint} style={{marginBottom:10}}>
+                  <div className="text-xs text-secondary mb-3">
                     {showFollowUp === 'selected'
                       ? `Sends to ${selectedRecipients.size} selected recipients in same thread`
                       : `Sends as reply in same thread · Follow-up #${followUpLevel + 1}`}
                   </div>
                   <button
-                    className={styles.sendBtn}
+                    className={`${btnPrimaryCls} w-full py-3`}
                     onClick={startFollowUp}
                     disabled={sendingFollowUp || !followUpTemplateId || (followUpScheduled && !followUpScheduleAt)}
                   >
                     {sendingFollowUp
-                      ? <span className={styles.sendingDots}>Sending<span>...</span></span>
+                      ? 'Sending...'
                       : followUpScheduled
                         ? `⏰ Schedule Follow-up`
                         : showFollowUp === 'selected'
                           ? `🔁 Send to ${selectedRecipients.size} selected`
                           : `🔁 Send Follow-up #${followUpLevel + 1}`}
                   </button>
-                  <button className={styles.btnGhost} style={{width:'100%', marginTop:6}} onClick={() => { setShowFollowUp(null); setFollowUpTemplateId(''); setFollowUpScheduled(false); setFollowUpScheduleAt('') }}>
+                  <button className={`${btnGhostCls} w-full mt-2`} onClick={() => { setShowFollowUp(null); setFollowUpTemplateId(''); setFollowUpScheduled(false); setFollowUpScheduleAt('') }}>
                     Cancel
                   </button>
                 </>
@@ -1189,13 +1200,9 @@ function ComposeTab({ templates: initialTemplates, onSaved, showToast }: any) {
   const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const selectedRef = useRef<Template | null>(null)
 
-  // Keep ref in sync so debounce closure can access latest selected
   useEffect(() => { selectedRef.current = selected }, [selected])
-
-  // Sync when parent refreshes templates
   useEffect(() => { setLocalTemplates(initialTemplates || []) }, [initialTemplates])
 
-  // Auto-save 2s after user stops typing
   function scheduleAutoSave(newName: string, newSubject: string, newBody: string) {
     if (autoSaveRef.current) clearTimeout(autoSaveRef.current)
     autoSaveRef.current = setTimeout(async () => {
@@ -1268,7 +1275,7 @@ function ComposeTab({ templates: initialTemplates, onSaved, showToast }: any) {
 
   function deleteTemplate(id: string) {
     if (!confirm('Delete this template?')) return
-    setLocalTemplates(prev => prev.filter(t => t.id !== id)) // instant remove
+    setLocalTemplates(prev => prev.filter(t => t.id !== id))
     if (selected?.id === id) resetEditor()
     showToast('Template deleted')
     fetch(`/api/templates?id=${id}`, { method: 'DELETE' })
@@ -1280,9 +1287,9 @@ function ComposeTab({ templates: initialTemplates, onSaved, showToast }: any) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: `Copy of ${t.name}`, subject: t.subject, body: t.body })
     })
-    const newTemplate = await r.json()
-    setLocalTemplates(prev => [newTemplate, ...prev])
-    editTemplate(newTemplate)
+    const newTpl = await r.json()
+    setLocalTemplates(prev => [newTpl, ...prev])
+    editTemplate(newTpl)
     showToast('Template duplicated!')
   }
 
@@ -1329,122 +1336,118 @@ function ComposeTab({ templates: initialTemplates, onSaved, showToast }: any) {
   const placeholders = detectPlaceholders()
 
   return (
-    <div className={styles.tabContent}>
-      {/* Editor view — full page when template selected */}
+    <div>
       {selected ? (
         <>
-        <div className={styles.pageHeader}>
-          <div style={{display:'flex', alignItems:'center', gap:12}}>
-            <button className={styles.backBtn} onClick={cancelTemplate}>←</button>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-border bg-white hover:bg-surface-low transition-colors" onClick={cancelTemplate}>←</button>
             <div>
-              <h1 className={styles.pageTitle}>{name || 'Untitled Template'}</h1>
-              <p className={styles.pageSubtitle}>{subject || 'No subject'}</p>
+              <h1 className="text-2xl font-semibold text-ink">{name || 'Untitled Template'}</h1>
+              <p className="text-sm text-secondary mt-0.5">{subject || 'No subject'}</p>
             </div>
           </div>
-          <div style={{display:'flex', gap:8, alignItems:'center'}}>
-            {autoSaving && <span style={{fontSize:11, color:'var(--text3)'}}>saving…</span>}
-            <button className={styles.btnPrimary} onClick={saveTemplate} disabled={saving}>
+          <div className="flex items-center gap-3">
+            {autoSaving && <span className="text-xs text-secondary italic">saving…</span>}
+            <button className={btnPrimaryCls} onClick={saveTemplate} disabled={saving}>
               {saving ? 'Saving…' : 'Save Template'}
             </button>
           </div>
         </div>
 
-        <div style={{display:'grid', gridTemplateColumns:'1fr 280px', gap:16, alignItems:'start'}}>
-          <div className={styles.card}>
-            <div className={styles.formGroup}>
-              <label className={styles.label}>Template Name</label>
-              <input className={styles.input} value={name} onChange={e => { setName(e.target.value); scheduleAutoSave(e.target.value, subject, body) }} placeholder="e.g. Masters Admission Inquiry" />
+        <div className="grid grid-cols-[1fr_280px] gap-4 items-start">
+          <div className={cardCls}>
+            <div className="mb-4">
+              <label className={labelCls}>Template Name</label>
+              <input className={inputCls} value={name} onChange={e => { setName(e.target.value); scheduleAutoSave(e.target.value, subject, body) }} placeholder="e.g. Masters Admission Inquiry" />
             </div>
-            <div className={styles.formGroup}>
-              <label className={styles.label}>Subject Line</label>
-              <input className={styles.input} value={subject} onChange={e => { setSubject(e.target.value); scheduleAutoSave(name, e.target.value, body) }} placeholder="e.g. Inquiry Regarding PhD Supervision — {{Name}}" />
+            <div className="mb-4">
+              <label className={labelCls}>Subject Line</label>
+              <input className={inputCls} value={subject} onChange={e => { setSubject(e.target.value); scheduleAutoSave(name, e.target.value, body) }} placeholder="e.g. Inquiry Regarding PhD Supervision — {{Name}}" />
             </div>
-            <div className={styles.formGroup}>
-              <label className={styles.label}>Email Body</label>
-              <div style={{display:'flex',gap:4,padding:'6px 8px',background:'var(--bg3)',border:'1.5px solid var(--border)',borderBottom:'none',borderRadius:'var(--radius) var(--radius) 0 0'}}>
+            <div>
+              <label className={labelCls}>Email Body</label>
+              <div className="flex gap-1 p-2 bg-surface-low border border-border border-b-0 rounded-t-lg">
                 {[
-                  { label: 'B', action: () => editor?.chain().focus().toggleBold().run(), active: editor?.isActive('bold'), style: {fontWeight:'bold'} },
-                  { label: 'I', action: () => editor?.chain().focus().toggleItalic().run(), active: editor?.isActive('italic'), style: {fontStyle:'italic'} },
-                  { label: 'U', action: () => editor?.chain().focus().toggleStrike().run(), active: editor?.isActive('strike'), style: {textDecoration:'underline'} },
+                  { label: 'B', action: () => editor?.chain().focus().toggleBold().run(), active: editor?.isActive('bold'), cls: 'font-bold' },
+                  { label: 'I', action: () => editor?.chain().focus().toggleItalic().run(), active: editor?.isActive('italic'), cls: 'italic' },
+                  { label: 'U', action: () => editor?.chain().focus().toggleStrike().run(), active: editor?.isActive('strike'), cls: 'underline' },
                 ].map(btn => (
-                  <button key={btn.label} onClick={btn.action} style={{padding:'3px 8px',border:'1px solid var(--border)',borderRadius:4,background: btn.active ? 'var(--accent)' : 'var(--bg2)',color: btn.active ? 'white' : 'var(--text)',cursor:'pointer',fontSize:13,...btn.style}}>{btn.label}</button>
+                  <button key={btn.label} onClick={btn.action}
+                    className={`px-2 py-1 border border-border rounded text-sm transition-colors ${btn.cls} ${btn.active ? 'bg-ink text-white' : 'bg-white text-ink hover:bg-surface-low'}`}>
+                    {btn.label}
+                  </button>
                 ))}
               </div>
-              <div style={{border:'1.5px solid var(--border)',borderRadius:'0 0 var(--radius) var(--radius)',background:'var(--bg3)',minHeight:280,padding:'10px 12px',fontSize:13,color:'var(--text)',lineHeight:1.6,cursor:'text'}} onClick={() => editor?.commands.focus()}>
+              <div className="border border-border rounded-b-lg bg-surface-low min-h-[280px] p-3 text-sm text-ink leading-relaxed cursor-text" onClick={() => editor?.commands.focus()}>
                 <EditorContent editor={editor} />
               </div>
             </div>
           </div>
 
-          <div style={{display:'flex', flexDirection:'column', gap:12}}>
-            {/* Placeholders */}
+          <div className="flex flex-col gap-3">
             {placeholders.length > 0 && (
-              <div className={styles.card}>
-                <div className={styles.phLabel}>Detected placeholders</div>
-                <div className={styles.phChips}>
-                  {placeholders.map((p: string) => <span key={p} className={styles.phChip}>{'{{'}{p}{'}}'}</span>)}
+              <div className={cardCls}>
+                <div className="text-xs font-semibold text-secondary uppercase mb-2">Detected placeholders</div>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {placeholders.map((p: string) => (
+                    <span key={p} className="text-xs bg-surface-low border border-border rounded px-2 py-0.5 font-mono">{'{{'}{p}{'}}'}</span>
+                  ))}
                 </div>
-                <div className={styles.hint}>Replaced with recipient data on send</div>
+                <div className="text-xs text-outline">Replaced with recipient data on send</div>
               </div>
             )}
 
-            {/* Attachment */}
-            <div className={styles.card}>
-              <label className={styles.label}>Attachment</label>
-              <input ref={attachRef} type="file" style={{display:'none'}} accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" onChange={e => { if(e.target.files?.[0]) uploadAttachment(e.target.files[0]) }} />
+            <div className={cardCls}>
+              <label className={labelCls}>Attachment</label>
+              <input ref={attachRef} type="file" className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" onChange={e => { if(e.target.files?.[0]) uploadAttachment(e.target.files[0]) }} />
               {attachmentName ? (
-                <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',background:'var(--bg3)',borderRadius:'var(--radius)',border:'1px solid var(--border)'}}>
-                  <span style={{fontSize:16}}>📎</span>
-                  <span style={{fontSize:12,color:'var(--text)',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{attachmentName}</span>
-                  <button onClick={removeAttachment} style={{background:'none',border:'none',color:'var(--red)',cursor:'pointer',fontSize:14,padding:'0 4px'}}>✕</button>
+                <div className="flex items-center gap-2 px-3 py-2 bg-surface-low rounded-lg border border-border">
+                  <span>📎</span>
+                  <span className="text-xs text-ink flex-1 truncate">{attachmentName}</span>
+                  <button onClick={removeAttachment} className="text-accentRed text-sm px-1">✕</button>
                 </div>
               ) : (
-                <button className={styles.btnGhost} style={{width:'100%'}} onClick={() => attachRef.current?.click()} disabled={uploading}>
+                <button className={`${btnGhostCls} w-full`} onClick={() => attachRef.current?.click()} disabled={uploading}>
                   {uploading ? 'Uploading…' : '📎 Attach File'}
                 </button>
               )}
-              <div className={styles.hint} style={{marginTop:6}}>PDF, Word, Excel, or image</div>
+              <div className="text-xs text-outline mt-1.5">PDF, Word, Excel, or image files</div>
             </div>
           </div>
         </div>
         </>
       ) : (
-        /* Card grid view */
         <>
-        <div className={styles.pageHeader}>
+        <div className="flex items-end justify-between mb-6">
           <div>
-            <h1 className={styles.pageTitle}>Templates</h1>
-            <p className={styles.pageSubtitle}>Write reusable email templates with {'{{'} placeholders {'}}'}</p>
+            <h1 className="text-3xl font-semibold text-ink tracking-tight">Templates</h1>
+            <p className="text-sm text-secondary mt-1">Write reusable email templates with {'{{'} placeholders {'}}'}</p>
           </div>
-          <div style={{display:'flex', gap:8}}>
-            <button className={styles.refreshBtn} onClick={() => { onSaved(); showToast('Refreshed!', 'info') }}>
-              <span className={styles.refreshIcon}>↻</span> Refresh
-            </button>
-            <button className={styles.btnPrimary} onClick={newTemplate}>+ New Template</button>
+          <div className="flex gap-2">
+            <button className={btnGhostCls} onClick={() => { onSaved(); showToast('Refreshed!', 'info') }}>↻ Refresh</button>
+            <button className={btnPrimaryCls} onClick={newTemplate}>+ New Template</button>
           </div>
         </div>
 
         {!localTemplates.length ? (
-          <div className={styles.empty}>
-            <div className={styles.emptyIcon}>✦</div>
-            <div className={styles.emptyTitle}>No templates yet</div>
-            <div className={styles.emptyText} style={{marginBottom:16}}>Create your first template</div>
-            <button className={styles.btnPrimary} onClick={newTemplate}>+ New Template</button>
+          <div className={cardCls}>
+            <EmptyState icon="✦" title="No templates yet" text="Create your first template"
+              action={<button className={btnPrimaryCls} onClick={newTemplate}>+ New Template</button>} />
           </div>
         ) : (
-          <div className={styles.cardGrid}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {localTemplates.map((t: Template) => (
-              <div key={t.id} className={styles.gridCard} onClick={() => editTemplate(t)}>
-                <div className={styles.gridCardAccent} style={{background:'var(--accent)'}}></div>
-                <div className={styles.gridCardName}>{t.name || 'Untitled'}</div>
-                <div className={styles.gridCardSub}>{t.subject || 'No subject'}</div>
-                <div className={styles.gridCardMeta}>
-                  {(t as any).attachmentName && <span className={styles.gridCardStat}>📎 {(t as any).attachmentName}</span>}
-                  <span className={styles.gridCardDate}>{new Date(t.updatedAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})}</span>
+              <div key={t.id} className={`${cardCls} cursor-pointer hover:border-ink transition-all group relative`} onClick={() => editTemplate(t)}>
+                <h3 className="font-semibold text-ink mb-1">{t.name || 'Untitled'}</h3>
+                <p className="text-sm text-secondary mb-4 truncate">{t.subject || 'No subject'}</p>
+                <div className="flex items-center justify-between text-xs text-secondary pt-3 border-t border-border">
+                  {(t as any).attachmentName ? <span>📎 {(t as any).attachmentName}</span> : <span />}
+                  <span>{new Date(t.updatedAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})}</span>
                 </div>
-                <div className={styles.gridCardActions}>
-                  <button className={styles.gridActionBtn} onClick={e => { e.stopPropagation(); duplicateTemplate(t) }} title="Duplicate">⧉</button>
-                  <button className={styles.gridActionBtn} onClick={e => { e.stopPropagation(); deleteTemplate(t.id) }} title="Delete" style={{color:'var(--red)'}}>✕</button>
+                <div className="absolute top-4 right-4 hidden group-hover:flex gap-1 bg-white rounded-lg shadow-ambient border border-border p-1">
+                  <button className="p-1.5 text-secondary hover:bg-surface-low rounded" onClick={e => { e.stopPropagation(); duplicateTemplate(t) }} title="Duplicate">⧉</button>
+                  <button className="p-1.5 text-accentRed hover:bg-surface-low rounded" onClick={e => { e.stopPropagation(); deleteTemplate(t.id) }} title="Delete">✕</button>
                 </div>
               </div>
             ))}
@@ -1455,6 +1458,7 @@ function ComposeTab({ templates: initialTemplates, onSaved, showToast }: any) {
     </div>
   )
 }
+
 // ─── Dashboard Tab ────────────────────────────────────────
 function DashboardTab({ campaigns, showToast }: any) {
   const [campaignId, setCampaignId] = useState<string>('')
@@ -1500,23 +1504,20 @@ function DashboardTab({ campaigns, showToast }: any) {
   }
 
   return (
-    <div className={styles.tabContent}>
-      <div className={styles.pageHeader}>
+    <div>
+      <div className="flex items-end justify-between mb-6">
         <div>
-          <h1 className={styles.pageTitle}>Dashboard</h1>
-          <p className={styles.pageSubtitle}>Track opens, filter by date, export follow-up lists</p>
+          <h1 className="text-3xl font-semibold text-ink tracking-tight">Dashboard</h1>
+          <p className="text-sm text-secondary mt-1">Track opens, filter by date, export follow-up lists</p>
         </div>
-        <div style={{display:'flex',gap:8}}>
-          <button className={styles.refreshBtn} onClick={loadData}>
-            <span className={styles.refreshIcon}>↻</span> Refresh
-          </button>
-          <button className={styles.btnGhost} onClick={exportCSV}>⬇ Export CSV</button>
+        <div className="flex gap-2">
+          <button className={btnGhostCls} onClick={loadData}>↻ Refresh</button>
+          <button className={btnGhostCls} onClick={exportCSV}>⬇ Export CSV</button>
         </div>
       </div>
 
-      {/* Campaign selector */}
-      <div className={styles.card} style={{marginBottom:16}}>
-        <select className={styles.input} value={campaignId} onChange={e => setCampaignId(e.target.value)} style={{maxWidth:400}}>
+      <div className={`${cardCls} mb-4`}>
+        <select className={`${inputCls} max-w-[400px]`} value={campaignId} onChange={e => setCampaignId(e.target.value)}>
           <option value="">Select a campaign…</option>
           {campaigns.map((c: Campaign) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
@@ -1524,25 +1525,15 @@ function DashboardTab({ campaigns, showToast }: any) {
 
       {campaignId && (
         <>
-          {/* Stat cards */}
-          <div className={styles.statCards}>
-            {[
-              { label: 'Total Sent', value: campaign?.sent || 0, accent: '#111112' },
-              { label: 'Opened',     value: opened,               accent: '#16a34a' },
-              { label: 'Not Opened', value: notOpened,            accent: '#d97706' },
-              { label: 'Open Rate',  value: openRate + '%',       accent: '#7c3aed' },
-            ].map(s => (
-              <div key={s.label} className={styles.statCard}>
-                <div className={styles.statAccent} style={{background: s.accent}}></div>
-                <div className={styles.statNum}>{s.value}</div>
-                <div className={styles.statLabel}>{s.label}</div>
-              </div>
-            ))}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatCard label="Total Sent" value={campaign?.sent || 0} />
+            <StatCard label="Opened" value={opened} />
+            <StatCard label="Not Opened" value={notOpened} />
+            <StatCard label="Open Rate" value={openRate + '%'} />
           </div>
 
-          {/* Filters */}
-          <div className={styles.filters}>
-            <select className={styles.input} style={{width:160}} value={status} onChange={e => setStatus(e.target.value)}>
+          <div className={`${cardCls} mb-4 flex flex-wrap items-center gap-3`}>
+            <select className={`${inputCls} w-40`} value={status} onChange={e => setStatus(e.target.value)}>
               <option value="all">All Statuses</option>
               <option value="opened">✓ Opened</option>
               <option value="not_opened">✗ Not Opened</option>
@@ -1550,45 +1541,42 @@ function DashboardTab({ campaigns, showToast }: any) {
               <option value="pending">Pending</option>
               <option value="error">Error</option>
             </select>
-            <input className={styles.input} type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{width:150}} />
-            <input className={styles.input} type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   style={{width:150}} />
-            <input className={styles.input} value={search} onChange={e => setSearch(e.target.value)} placeholder="Search email…" style={{width:200}} />
-            <button className={styles.btnPrimary} onClick={loadData}>Apply</button>
-            <button className={styles.btnGhost} onClick={() => { setStatus('all'); setDateFrom(''); setDateTo(''); setSearch(''); setTimeout(loadData, 50) }}>Reset</button>
+            <input className={`${inputCls} w-36`} type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+            <input className={`${inputCls} w-36`} type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+            <input className={`${inputCls} w-48`} value={search} onChange={e => setSearch(e.target.value)} placeholder="Search email…" />
+            <button className={btnPrimaryCls} onClick={loadData}>Apply</button>
+            <button className={btnGhostCls} onClick={() => { setStatus('all'); setDateFrom(''); setDateTo(''); setSearch(''); setTimeout(loadData, 50) }}>Reset</button>
           </div>
 
-          {/* Table */}
-          <div className={styles.card}>
-            <div className={styles.cardHeader}>
-              <div className={styles.cardTitle}>Results</div>
-              <div className={styles.resultCount}>{recipients.length} recipient{recipients.length !== 1 ? 's' : ''}</div>
+          <div className={cardCls}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-ink">Results</h2>
+              <span className="text-xs text-secondary">{recipients.length} recipient{recipients.length !== 1 ? 's' : ''}</span>
             </div>
             {loading ? (
-              <div className={styles.loadingRow}>Loading…</div>
+              <div className="text-center py-10 text-sm text-secondary">Loading…</div>
             ) : !recipients.length ? (
-              <div className={styles.loadingRow} style={{color:'var(--text3)'}}>No results match your filters</div>
+              <div className="text-center py-10 text-sm text-outline">No results match your filters</div>
             ) : (
-              <div className={styles.tableContainer}>
-                <table className={styles.table}>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
                   <thead>
-                    <tr>
-                      <th>Email</th>
-                      <th>Status</th>
-                      <th>Sent At</th>
-                      <th>Opened At</th>
+                    <tr className="text-xs text-secondary uppercase border-b border-border">
+                      <th className="py-2 pr-4 font-semibold">Email</th>
+                      <th className="py-2 pr-4 font-semibold">Status</th>
+                      <th className="py-2 pr-4 font-semibold">Sent At</th>
+                      <th className="py-2 font-semibold">Opened At</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-border">
                     {recipients.map(r => (
                       <tr key={r.id}>
-                        <td className={styles.emailCell}>{r.email}</td>
-                        <td>
-                          <span className={styles.statusBadge} data-status={r.openedAt ? 'opened' : r.status}>
-                            {r.openedAt ? '👁 Opened' : r.status === 'sent' ? '✓ Sent' : r.status === 'error' ? '✗ Error' : '· Pending'}
-                          </span>
+                        <td className="py-3 pr-4 font-medium text-ink">{r.email}</td>
+                        <td className="py-3 pr-4">
+                          <StatusBadge status={r.openedAt ? 'opened' : r.status} />
                         </td>
-                        <td className={styles.dateCell}>{r.sentAt ? new Date(r.sentAt).toLocaleString('en-PK',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true}) : '—'}</td>
-                        <td className={styles.dateCell}>{r.openedAt ? <span style={{color:'var(--green)'}}>{new Date(r.openedAt).toLocaleString('en-PK',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true})}</span> : '—'}</td>
+                        <td className="py-3 pr-4 text-secondary">{r.sentAt ? new Date(r.sentAt).toLocaleString('en-PK',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true}) : '—'}</td>
+                        <td className="py-3 text-secondary">{r.openedAt ? <span className="text-green-600">{new Date(r.openedAt).toLocaleString('en-PK',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true})}</span> : '—'}</td>
                       </tr>
                     ))}
                   </tbody>
