@@ -57,6 +57,15 @@ function StatusBadge({ status }: { status: string }) {
   return <span className={`${badgeCls} ${map[status] || map.pending}`}>{label[status] || status}</span>
 }
 
+function Spinner({ size = 14, className = '' }: { size?: number, className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={`animate-spin ${className}`}>
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeOpacity="0.25" />
+      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 function StatusDot({ status }: { status: string }) {
   const color: Record<string, string> = { draft: 'bg-outline', sending: 'bg-accentOrange', done: 'bg-green-500', scheduled: 'bg-accentOrange' }
   return <span className={`w-2 h-2 rounded-full ${color[status] || 'bg-outline'}`} />
@@ -87,6 +96,20 @@ export default function App() {
     fetch('/api/auth/me').then(r => r.json()).then(d => {
       if (d?.user?.name) setUserInitial(d.user.name.trim()[0]?.toUpperCase() || 'A')
     }).catch(() => {})
+  }, [])
+
+  // Keep campaign statuses fresh without needing a manual page refresh.
+  // Polls in the background every 12s, and immediately when the tab regains focus.
+  useEffect(() => {
+    const interval = setInterval(() => { loadCampaigns() }, 12000)
+    function onVisible() { if (document.visibilityState === 'visible') loadCampaigns() }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onVisible)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onVisible)
+    }
   }, [])
 
   async function loadTemplates() {
@@ -462,9 +485,20 @@ function CampaignsTab({ campaigns: initialCampaigns, templates, onRefresh, showT
   const [newName, setNewName]           = useState('')
   const [newTemplateId, setNewTemplate] = useState('')
   const [selected, setSelected]         = useState<Campaign | null>(null)
+  const [savingCreate, setSavingCreate] = useState(false)
   const recipientsCache = useRef<Record<string, any[]>>({})
 
   useEffect(() => { setLocalCampaigns(initialCampaigns || []) }, [initialCampaigns])
+
+  // When the background poll refreshes the list, keep the open detail view's
+  // status/sentCount in sync too (so it doesn't look stuck on "sending").
+  useEffect(() => {
+    if (!selected) return
+    const updated = localCampaigns.find(c => c.id === selected.id)
+    if (updated && (updated.status !== selected.status || (updated as any).sentCount !== (selected as any).sentCount || updated.scheduledAt !== selected.scheduledAt)) {
+      setSelected(updated)
+    }
+  }, [localCampaigns])
 
   function prefetchRecipients(campaignId: string) {
     if (recipientsCache.current[campaignId]) return
@@ -475,12 +509,14 @@ function CampaignsTab({ campaigns: initialCampaigns, templates, onRefresh, showT
 
   async function createCampaign() {
     if (!newName || !newTemplateId) return showToast('Enter name and select template', 'error')
+    setSavingCreate(true)
     const r = await fetch('/api/campaigns', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: newName, templateId: newTemplateId })
     })
     const c = await r.json()
+    setSavingCreate(false)
     setLocalCampaigns(prev => [c, ...prev])
     setCreating(false); setNewName(''); setNewTemplate('')
     setSelected(c)
@@ -556,7 +592,10 @@ function CampaignsTab({ campaigns: initialCampaigns, templates, onRefresh, showT
           </div>
           <div className="flex justify-end gap-2">
             <button className={btnGhostCls} onClick={() => setCreating(false)}>Cancel</button>
-            <button className={btnPrimaryCls} onClick={createCampaign}>Create Campaign</button>
+            <button className={`${btnPrimaryCls} flex items-center gap-2`} onClick={createCampaign} disabled={savingCreate}>
+              {savingCreate && <Spinner />}
+              {savingCreate ? 'Creating...' : 'Create Campaign'}
+            </button>
           </div>
         </div>
       )}
@@ -610,6 +649,8 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
   const [loading, setLoading]         = useState(!initialRecipients)
   const [sending, setSending]         = useState(false)
   const [importTab, setImportTab]     = useState<'csv'|'sheet'|'manual'>('csv')
+  const [importing, setImporting]     = useState(false)
+  const [refreshing, setRefreshing]   = useState(false)
   const [sheetUrl, setSheetUrl]       = useState('')
   const [manualText, setManualText]   = useState('')
   const [delayMin, setDelayMin]       = useState(30)
@@ -631,6 +672,7 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
   const [editing, setEditing]                 = useState(false)
   const [editName, setEditName]               = useState(campaign.name)
   const [editTemplateId, setEditTemplateId]   = useState(campaign.templateId || '')
+  const [savingEdit, setSavingEdit]           = useState(false)
   const fileRef  = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -639,13 +681,25 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
     loadTemplates()
   }, [])
 
+  // Background-poll recipient statuses (sent/opened/error/follow-ups) while anything
+  // is still pending or being sent — no more relying on a manual page refresh.
+  useEffect(() => {
+    const hasPending = recipients.some(r => r.status === 'pending' || r.status === 'sending')
+      || recipients.some((r: any) => (r.followUps || []).some((f: any) => f.status === 'pending' || f.status === 'scheduled' || f.status === 'sending'))
+      || campaign.status === 'sending' || campaign.status === 'scheduled'
+    if (!hasPending) return
+    const interval = setInterval(() => { loadRecipients(true) }, 8000)
+    return () => clearInterval(interval)
+  }, [recipients, campaign.status])
+
   async function loadTemplates() {
     const r = await fetch('/api/templates')
     const d = await r.json()
     setAllTemplates(d)
   }
 
-  async function loadRecipients() {
+  async function loadRecipients(silent = false) {
+    if (!silent) setLoading(true)
     const r = await fetch(`/api/recipients?campaignId=${campaign.id}`)
     const data = await r.json()
     setRecipients(data)
@@ -654,19 +708,22 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
   }
 
   async function uploadCSV(file: File) {
+    setImporting(true)
     const form = new FormData(); form.append('file', file)
     const r = await fetch(`/api/recipients?campaignId=${campaign.id}`, { method: 'POST', body: form })
     const d = await r.json()
+    setImporting(false)
     if (d.error) return showToast(d.error, 'error')
     showToast(`Imported ${d.count} recipients!`); loadRecipients()
   }
 
   async function importSheet() {
     if (!sheetUrl) return showToast('Enter a Google Sheet URL', 'error')
+    setImporting(true)
     showToast('Importing from Google Sheet…', 'info')
     const r = await fetch('/api/import-sheet', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ url: sheetUrl }) })
     const d = await r.json()
-    if (d.error) return showToast(d.error, 'error')
+    if (d.error) { setImporting(false); return showToast(d.error, 'error') }
 
     const r2 = await fetch(`/api/recipients?campaignId=${campaign.id}`, {
       method: 'POST',
@@ -674,12 +731,14 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
       body: JSON.stringify({ recipients: d.records, columns: d.columns })
     })
     const d2 = await r2.json()
+    setImporting(false)
     if (d2.error) return showToast(d2.error, 'error')
     showToast(`Imported ${d2.count} recipients from Sheet!`); loadRecipients()
   }
 
   async function importManual() {
     if (!manualText.trim()) return showToast('Paste some data first', 'error')
+    setImporting(true)
     try {
       const records = parse(manualText, { columns: true, skip_empty_lines: true, trim: true })
       const r = await fetch(`/api/recipients?campaignId=${campaign.id}`, {
@@ -687,9 +746,11 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
         body: JSON.stringify({ recipients: records, columns: Object.keys(records[0] || {}) })
       })
       const d = await r.json()
+      setImporting(false)
       if (d.error) return showToast(d.error, 'error')
       showToast(`Added ${d.count} recipients!`); loadRecipients()
     } catch {
+      setImporting(false)
       showToast('Could not parse data. Make sure first row has column names.', 'error')
     }
   }
@@ -774,12 +835,14 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
   }
 
   async function saveCampaignEdit() {
+    setSavingEdit(true)
     await fetch('/api/campaigns', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: campaign.id, name: editName, templateId: editTemplateId })
     })
     campaign.name = editName
+    setSavingEdit(false)
     setEditing(false)
     showToast('Campaign updated!')
   }
@@ -816,7 +879,9 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
             <p className="text-sm text-secondary mt-0.5">{campaign.template?.name} · {campaign.template?.subject}</p>
           </div>
         </div>
-        <button className={btnGhostCls} onClick={() => { loadRecipients(); showToast('Refreshed!', 'info') }}>↻ Refresh</button>
+        <button className={`${btnGhostCls} flex items-center gap-2`} onClick={async () => { setRefreshing(true); await loadRecipients(); setRefreshing(false); showToast('Refreshed!', 'info') }} disabled={refreshing}>
+          {refreshing ? <Spinner size={12} /> : '↻'} Refresh
+        </button>
       </div>
 
       <div className="flex gap-6 items-start">
@@ -839,23 +904,34 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
             </div>
 
             {importTab === 'csv' && (
-              <div className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-ink hover:bg-surface-low transition-all"
+              <div className={`border-2 border-dashed border-border rounded-xl p-8 text-center transition-all ${importing ? 'opacity-60 pointer-events-none' : 'cursor-pointer hover:border-ink hover:bg-surface-low'}`}
                 onClick={() => fileRef.current?.click()}
                 onDragOver={e => e.preventDefault()}
                 onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if(f) uploadCSV(f) }}>
                 <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={e => { if(e.target.files?.[0]) uploadCSV(e.target.files[0]) }} />
-                <div className="text-2xl text-secondary mb-2">⬆</div>
-                <div className="text-sm font-medium text-ink">Drop CSV file here or click to upload</div>
-                <div className="text-xs text-secondary mt-1">First row must be column headers</div>
+                {importing ? (
+                  <div className="flex flex-col items-center gap-2 text-secondary">
+                    <Spinner size={20} /> <div className="text-sm">Importing…</div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-2xl text-secondary mb-2">⬆</div>
+                    <div className="text-sm font-medium text-ink">Drop CSV file here or click to upload</div>
+                    <div className="text-xs text-secondary mt-1">First row must be column headers</div>
+                  </>
+                )}
               </div>
             )}
 
             {importTab === 'sheet' && (
               <div>
                 <label className={labelCls}>Google Sheet URL</label>
-                <input className={inputCls} value={sheetUrl} onChange={e => setSheetUrl(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/..." />
+                <input className={inputCls} value={sheetUrl} onChange={e => setSheetUrl(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/..." disabled={importing} />
                 <div className="text-xs text-secondary mt-1.5">Sheet must be set to "Anyone with the link can view"</div>
-                <button className={`${btnPrimaryCls} mt-3`} onClick={importSheet}>Import</button>
+                <button className={`${btnPrimaryCls} mt-3 flex items-center gap-2`} onClick={importSheet} disabled={importing}>
+                  {importing && <Spinner />}
+                  {importing ? 'Importing...' : 'Import'}
+                </button>
               </div>
             )}
 
@@ -882,7 +958,16 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
                   }}
                   placeholder={'Name\tEmail\tUniversity\nProf. Smith\tsmith@uni.edu\tMIT'}
                 />
-                <button className={`${btnPrimaryCls} mt-3`} onClick={importManual}>Add Recipients</button>
+                <button className={`${btnPrimaryCls} mt-3 flex items-center gap-2`} onClick={importManual} disabled={importing}>
+                  {importing && <Spinner />}
+                  {importing ? 'Adding...' : 'Add Recipients'}
+                </button>
+              </div>
+            )}
+
+            {loading && recipients.length === 0 && (
+              <div className="my-4 border border-border rounded-lg p-8 flex items-center justify-center gap-2 text-secondary text-sm">
+                <Spinner /> Loading recipients…
               </div>
             )}
 
@@ -1032,7 +1117,10 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
               </div>
               <div className="flex justify-end gap-2">
                 <button className={btnGhostCls} onClick={() => setEditing(false)}>Cancel</button>
-                <button className={btnPrimaryCls} onClick={saveCampaignEdit}>Update</button>
+                <button className={`${btnPrimaryCls} flex items-center gap-2`} onClick={saveCampaignEdit} disabled={savingEdit}>
+                  {savingEdit && <Spinner />}
+                  {savingEdit ? 'Updating...' : 'Update'}
+                </button>
               </div>
             </div>
           ) : (<>
@@ -1073,11 +1161,12 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
             <div className="border-t border-border my-4"></div>
 
             <button
-              className={`${btnPrimaryCls} w-full py-3`}
+              className={`${btnPrimaryCls} w-full py-3 flex items-center justify-center gap-2`}
               onClick={startSend}
               disabled={sending || pending === 0}
             >
-              {sending ? 'Sending...' : useSchedule ? '📅 Schedule' : `🚀 Send to ${pending} recipients`}
+              {sending && <Spinner />}
+              {sending ? (useSchedule ? 'Scheduling...' : 'Sending...') : useSchedule ? '📅 Schedule' : `🚀 Send to ${pending} recipients`}
             </button>
 
             {campaign.status === 'done' && pending > 0 && (
@@ -1156,10 +1245,11 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
                       : `Sends as reply in same thread · Follow-up #${followUpLevel + 1}`}
                   </div>
                   <button
-                    className={`${btnPrimaryCls} w-full py-3`}
+                    className={`${btnPrimaryCls} w-full py-3 flex items-center justify-center gap-2`}
                     onClick={startFollowUp}
                     disabled={sendingFollowUp || !followUpTemplateId || (followUpScheduled && !followUpScheduleAt)}
                   >
+                    {sendingFollowUp && <Spinner />}
                     {sendingFollowUp
                       ? 'Sending...'
                       : followUpScheduled

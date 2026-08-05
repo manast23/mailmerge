@@ -145,6 +145,39 @@ src/lib/
 - Migration SQL for the User table + userId columns: `prisma/migrations/manual_multiuser_migration.sql`
   (must be run manually in Supabase SQL Editor, then backfilled with the first signed-up user's id).
 
+## Live status polling + button loading states (added August 2026)
+- **Problem reported:** Campaign card / detail page status (sending → done, opened, etc.) never
+  updated on its own — the whole app only fetched campaigns/recipients once on initial page load
+  (`useEffect(() => {...}, [])` with no interval). Users had to manually reload the browser to see
+  fresh state. Also, several action buttons (Send, Schedule, Follow-up, Create Campaign, Update,
+  CSV/Sheet/Manual import) had no loading/spinner feedback, so the app looked "stuck" for the few
+  seconds between click and response — a `loading` state existed in `CampaignDetail` but was never
+  rendered anywhere.
+- **Fix — background polling:**
+  - Top-level `App` component: `loadCampaigns()` now also runs on a 12s `setInterval`, plus
+    immediately on `visibilitychange`/`window focus` (tab refocus), cleaned up on unmount.
+  - `CampaignsTab`: when `localCampaigns` refreshes from the poll, the currently-open `selected`
+    campaign (passed into `CampaignDetail`) is kept in sync (status/sentCount/scheduledAt) so the
+    detail header doesn't lag behind the list.
+  - `CampaignDetail`: `loadRecipients(silent?)` now accepts a silent flag; a background
+    `setInterval` (8s) calls `loadRecipients(true)` whenever any recipient/follow-up is still
+    `pending`/`sending`/`scheduled` or the campaign itself is `sending`/`scheduled`. Polling
+    auto-stops once nothing is left in-flight, so idle campaigns don't poll forever.
+- **Fix — loading UI:** added a reusable `Spinner` component (inline SVG, `animate-spin`). Applied
+  spinner + disabled state to: Send/Schedule, Follow-up send/schedule, Create Campaign, Update
+  (campaign edit), CSV/Sheet/Manual-paste import, and the manual Refresh button. The recipients
+  table now shows a "Loading recipients…" spinner on first load (`loading && recipients.length===0`)
+  instead of a blank/stuck-looking panel.
+- **Root-cause note re: scheduled sends "only arriving after I refresh the app":** confirmed via
+  code review this is not caused by the frontend — nothing in `page.tsx` calls `/api/cron`, so
+  refreshing the browser cannot trigger a send. The real driver is the cron-job.org polling
+  interval (this file says every 1 min, but should be double-checked against the actual
+  cron-job.org dashboard config/run history, since the "arrives right after I happen to refresh"
+  pattern is consistent with a delayed cron tick, not a refresh-triggered action). Also confirmed
+  this is unrelated to having 2 Gmail-connected users — each send builds its own per-user Nodemailer
+  transporter (`src/lib/email.ts`), there's no shared bottleneck or global rate limit tied to
+  account count at this scale.
+
 ## UI Redesign — Google Stitch mockups → Tailwind implementation (added August 2026)
 - **Status: implemented and live in `src/app/page.tsx`, `login/page.tsx`, `signup/page.tsx`.**
   The app has been fully converted from CSS Modules to Tailwind CSS, and restyled to match the
