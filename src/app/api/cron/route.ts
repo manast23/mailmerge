@@ -201,11 +201,24 @@ export async function GET(req: NextRequest) {
     if (i < scheduledFollowUps.length - 1) await new Promise(resolve => setTimeout(resolve, 1000))
   }
 
+  // ── 4. Sweep: campaigns stuck on 'sending' with nothing left pending → mark 'done' ──
+  // (The staggered-send path above never flips status itself — this closes that gap,
+  // and also self-heals any campaigns that got stuck before this fix shipped.)
+  const stillSending = await prisma.campaign.findMany({
+    where: { status: 'sending' },
+    include: { recipients: { where: { status: 'pending' }, select: { id: true } } }
+  })
+  const doneIds = stillSending.filter(c => c.recipients.length === 0).map(c => c.id)
+  if (doneIds.length > 0) {
+    await prisma.campaign.updateMany({ where: { id: { in: doneIds } }, data: { status: 'done' } })
+  }
+
   return NextResponse.json({
     success: true,
     campaignsProcessed: campaigns.length,
     followUpsProcessed: scheduledFollowUps.length,
     staggeredProcessed: staggeredRecipients.length,
+    completedCampaigns: doneIds.length,
     totalSent
   })
 }

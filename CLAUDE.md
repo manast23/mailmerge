@@ -178,6 +178,24 @@ src/lib/
   transporter (`src/lib/email.ts`), there's no shared bottleneck or global rate limit tied to
   account count at this scale.
 
+## Fixed: campaign never left "sending" status (added August 2026)
+- **Real bug found during a wider review** (not just a UI staleness issue): the normal "Send Now"
+  path uses `/api/send`'s staggered `sendAfter` flow (cron section 2), which sends every recipient
+  fine but never once updated `Campaign.status` back to `'done'` — only the separate "scheduled
+  campaign" cron path (section 1) and the cancel endpoint did that. So every regular send left the
+  campaign stuck on `status: 'sending'` in the database forever, regardless of any frontend
+  refresh/polling.
+- **Fix:** `src/app/api/cron/route.ts` now runs a sweep at the end of every cron tick — any
+  campaign with `status: 'sending'` and zero remaining `pending` recipients gets flipped to
+  `'done'`. This also self-heals any campaigns that were already stuck before this fix shipped
+  (they'll flip to `done` on the next cron run after deploy).
+- **Known gap, not yet fixed — silent per-send cap:** `/api/send` accepts a `dailyLimit` (default
+  450) and only queues `recipients.slice(0, dailyLimit)` — recipients beyond that are left with
+  `sendAfter: null` and are silently never sent (frontend never passes `dailyLimit`, so any
+  campaign over 450 recipients quietly drops the rest with no warning or automatic continuation
+  the next day). Flagged to Anas; needs either an automatic next-day rollover in the cron sweep or
+  at minimum a toast telling the user how many were skipped.
+
 ## UI Redesign — Google Stitch mockups → Tailwind implementation (added August 2026)
 - **Status: implemented and live in `src/app/page.tsx`, `login/page.tsx`, `signup/page.tsx`.**
   The app has been fully converted from CSS Modules to Tailwind CSS, and restyled to match the
