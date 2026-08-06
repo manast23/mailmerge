@@ -241,6 +241,30 @@ src/lib/
   the Recent Campaigns table render `animate-pulse` skeleton placeholders instead of real
   (momentarily-zero) values or the empty state.
 
+## Fixed: actual /api/campaigns query performance (added August 2026)
+- **The real speed issue, found after being asked "did you actually make the homepage load
+  fast?"** — the previous loading-skeleton fix (above) only hid the wait, it didn't remove it.
+  `GET /api/campaigns` was pulling down every single recipient row (`status`, `openedAt`) for
+  every campaign the user has, just to `.filter()`/`.length` count them in JS. This runs on every
+  page load *and* on every 12s background poll, so it scales badly and adds real DB load as
+  recipient counts grow — this is what was actually making the home screen (and the polling)
+  slow, not just missing a spinner.
+- **Fix:** rewrote it to use two `prisma.recipient.groupBy()` aggregate queries (by
+  `[campaignId, status]` and by `campaignId` filtered to `openedAt: not null`) instead of
+  fetching raw rows — the DB does the counting, only small aggregate rows come back over the wire.
+- **Also added missing indexes** (`prisma/schema.prisma` updated, but — per the standing rule
+  below — **must be applied manually in Supabase SQL Editor**, not yet run):
+  ```sql
+  CREATE INDEX IF NOT EXISTS "Recipient_campaignId_status_idx" ON "Recipient" ("campaignId", "status");
+  CREATE INDEX IF NOT EXISTS "Recipient_campaignId_openedAt_idx" ON "Recipient" ("campaignId", "openedAt");
+  CREATE INDEX IF NOT EXISTS "Recipient_status_sendAfter_idx" ON "Recipient" ("status", "sendAfter");
+  CREATE INDEX IF NOT EXISTS "FollowUp_status_scheduledAt_idx" ON "FollowUp" ("status", "scheduledAt");
+  CREATE INDEX IF NOT EXISTS "Campaign_userId_createdAt_idx" ON "Campaign" ("userId", "createdAt");
+  CREATE INDEX IF NOT EXISTS "Campaign_status_idx" ON "Campaign" ("status");
+  ```
+  These weren't there before — every `campaignId`/`status`/`sendAfter` filter (including the
+  cron tick, which runs constantly) was doing a full table scan on `Recipient`/`FollowUp`.
+
 ## UI Redesign — Google Stitch mockups → Tailwind implementation (added August 2026)
 - **Status: implemented and live in `src/app/page.tsx`, `login/page.tsx`, `signup/page.tsx`.**
   The app has been fully converted from CSS Modules to Tailwind CSS, and restyled to match the

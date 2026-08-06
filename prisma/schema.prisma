@@ -48,6 +48,9 @@ model Campaign {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   recipients  Recipient[]
+
+  @@index([userId, createdAt])
+  @@index([status])
 }
 
 model Recipient {
@@ -68,6 +71,10 @@ model Recipient {
   fromEmail     String?
   createdAt     DateTime   @default(now())
   followUps     FollowUp[]
+
+  @@index([campaignId, status])
+  @@index([campaignId, openedAt])
+  @@index([status, sendAfter])
 }
 
 model FollowUp {
@@ -89,4 +96,6 @@ model FollowUp {
   fromEmail   String?
   error       String?
   createdAt   DateTime  @default(now())
+
+  @@index([status, scheduledAt])
 }
