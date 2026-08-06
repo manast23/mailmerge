@@ -75,6 +75,7 @@ model Recipient {
   @@index([campaignId, status])
   @@index([campaignId, openedAt])
   @@index([status, sendAfter])
+  @@unique([campaignId, email])
 }
 
 model FollowUp {

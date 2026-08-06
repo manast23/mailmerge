@@ -185,6 +185,62 @@ src/lib/
   transporter (`src/lib/email.ts`), there's no shared bottleneck or global rate limit tied to
   account count at this scale.
 
+## Root-caused: scheduled sends & "Send Now" follow-ups timing out (added August 2026)
+**This is the real fix for "scheduled campaign doesn't send until I refresh" — everything
+before this was UI polish, this is the actual server bug.**
+- **Scheduled campaigns:** `/api/send`'s `scheduleAt` branch used to only set
+  `Campaign.status='scheduled'` + `scheduledAt`, with no `sendAfter` on any recipient. When
+  `scheduledAt` arrived, cron's old section 1 looped through *every* recipient **synchronously,
+  inside the request**, calling `sendEmail()` + `await setTimeout(1000)` between each one. For
+  more than a handful of recipients this reliably exceeds Vercel's function timeout — the
+  function gets killed mid-loop, `Campaign.status` is already `'sending'` so cron's own
+  scheduled-campaign query never finds it again, and the un-sent recipients never got a
+  `sendAfter` set, so nothing ever picks them back up. Permanently stuck, silently.
+- **Follow-up "send now":** same class of bug, worse — `/api/followup`'s immediate-send branch
+  awaited `randomDelay(delayMin, delayMax)` (**default 30–90 seconds**) between every recipient,
+  synchronously inside the request. Two recipients guaranteed a 30s+ hold in a single HTTP call.
+- **Fix — unify everything onto the one pattern that already worked** (the staggered
+  `sendAfter` + resumable cron pickup used by regular "Send Now" campaigns):
+  - `/api/send`: both the immediate and `scheduleAt` branches now compute staggered
+    `sendAfter` per recipient from the same base time (`now` or `scheduleAt`), same
+    day-spillover logic for `dailyLimit`. Scheduled campaigns keep `status: 'scheduled'` until
+    cron flips it.
+  - `/api/cron` section 1 no longer sends anything itself — it's now a single cheap
+    `updateMany` that flips `'scheduled'` → `'sending'` once `scheduledAt` has passed (plus
+    one flipping empty/already-done scheduled campaigns straight to `'done'`). Section 2 (the
+    existing staggered loop, `take: 50` per tick, no campaign-status dependency) does the
+    actual sending automatically once flipped.
+  - `/api/followup`: dropped the synchronous immediate-send branch entirely. Every follow-up
+    (explicit schedule or "send now") is now written as a `status: 'scheduled'` `FollowUp` row
+    with a staggered `scheduledAt` (starting at `scheduledAt` or `now`, spaced by
+    `avgDelay = (delayMin+delayMax)/2`). Cron section 3 (now capped at `take: 50` per tick, to
+    match section 2) picks these up the same resumable way.
+  - Net effect: nothing in this app sleeps synchronously inside a request anymore — matches the
+    "never sleep in-process on Vercel" principle this file already documented, which the
+    scheduled-send and follow-up-send-now paths had quietly been violating.
+
+## Fixed: duplicate recipients on re-import (added August 2026)
+- `POST /api/recipients` already passed `skipDuplicates: true` to `createMany`, but it was a
+  no-op — Prisma's `skipDuplicates` only works against an actual DB unique constraint, and
+  `Recipient` had none on `(campaignId, email)`. Re-importing the same CSV (or an overlapping
+  list) silently created duplicate recipient rows, so the same person could get emailed twice.
+- **Fix:** added `@@unique([campaignId, email])` to `Recipient` in `schema.prisma`. **Not yet
+  applied to the DB** — needs the SQL below run manually in Supabase SQL Editor. This one
+  needs to happen in two steps since existing duplicates would violate a fresh unique
+  constraint:
+  ```sql
+  -- 1) Remove existing duplicates first, keeping the oldest row per campaign+email
+  DELETE FROM "Recipient" a
+  USING "Recipient" b
+  WHERE a.id <> b.id
+    AND a."campaignId" = b."campaignId"
+    AND a.email = b.email
+    AND a."createdAt" > b."createdAt";
+
+  -- 2) Then add the constraint (this is what makes skipDuplicates actually work)
+  CREATE UNIQUE INDEX IF NOT EXISTS "Recipient_campaignId_email_key" ON "Recipient" ("campaignId", "email");
+  ```
+
 ## Fixed: campaign never left "sending" status (added August 2026)
 - **Real bug found during a wider review** (not just a UI staleness issue): the normal "Send Now"
   path uses `/api/send`'s staggered `sendAfter` flow (cron section 2), which sends every recipient

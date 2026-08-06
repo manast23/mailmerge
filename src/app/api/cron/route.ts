@@ -12,65 +12,28 @@ export async function GET(req: NextRequest) {
 
   let totalSent = 0
 
-  // ── 1. Process scheduled campaigns ──────────────────────
-  const campaigns = await prisma.campaign.findMany({
-    where: { status: 'scheduled', scheduledAt: { lte: new Date() } },
-    include: { template: true, recipients: { where: { status: 'pending' } }, user: true }
+  // ── 1. Scheduled campaigns whose time has arrived ───────
+  // Recipients for these already have their staggered `sendAfter` timestamps set (by
+  // /api/send at schedule-time), so all this needs to do is flip the campaign from
+  // 'scheduled' to 'sending' — the staggered loop below (section 2) does the actual
+  // sending, a few at a time, resumable across cron ticks. This used to loop through
+  // every recipient synchronously with a 1s delay between each *inside this request*,
+  // which could exceed Vercel's function timeout for anything more than a handful of
+  // recipients — the campaign would get stuck on 'sending' with the rest of the
+  // recipients permanently un-sent (no sendAfter was ever set on them, so nothing would
+  // ever pick them back up). That was the root cause of scheduled sends "not going out
+  // until I refresh the app" — refreshing didn't fix anything, it just happened to be
+  // checked after enough time had passed for a lucky partial batch to get through.
+  // Also flip empty scheduled campaigns (0 recipients, or scheduled by mistake with
+  // nothing pending) straight to 'done' instead of leaving them stuck on 'scheduled'.
+  await prisma.campaign.updateMany({
+    where: { status: 'scheduled', scheduledAt: { lte: new Date() }, recipients: { none: { status: 'pending' } } },
+    data:  { status: 'done' }
   })
-
-  // Mark as sending immediately to prevent double-send if cron overlaps
-  if (campaigns.length > 0) {
-    await prisma.campaign.updateMany({
-      where: { id: { in: campaigns.map(c => c.id) } },
-      data: { status: 'sending' }
-    })
-  }
-
-  for (const campaign of campaigns) {
-    if (!campaign.recipients.length) {
-      await prisma.campaign.update({ where: { id: campaign.id }, data: { status: 'done' } })
-      continue
-    }
-    await prisma.campaign.update({ where: { id: campaign.id }, data: { status: 'sending' } })
-    let sentCount = 0
-
-    if (!campaign.user.gmailAddress || !campaign.user.encryptedAppPassword) {
-      await prisma.recipient.updateMany({
-        where: { id: { in: campaign.recipients.map(r => r.id) } },
-        data: { status: 'error', error: 'Gmail account not connected' }
-      })
-      continue
-    }
-    const gmailUser = campaign.user.gmailAddress
-    const gmailAppPassword = decrypt(campaign.user.encryptedAppPassword)
-
-    for (let i = 0; i < campaign.recipients.length; i++) {
-      const recipient = campaign.recipients[i]
-      const data = recipient.data as Record<string, string>
-      const trackId = randomUUID()
-      try {
-        const subject = replacePlaceholders(campaign.template.subject, data)
-        const html    = replacePlaceholders(campaign.template.body, data).replace(/\n/g, '<br>')
-        const result  = await sendEmail({
-          to: recipient.email, subject, html, trackId,
-          gmailUser, gmailAppPassword,
-          attachmentUrl:  campaign.template.attachmentUrl  || undefined,
-          attachmentName: campaign.template.attachmentName || undefined,
-        })
-        await prisma.recipient.update({
-          where: { id: recipient.id },
-          data:  { status: 'sent', sentAt: new Date(), trackId, messageId: result.messageId || null }
-        })
-        sentCount++
-      } catch (e: any) {
-        await prisma.recipient.update({ where: { id: recipient.id }, data: { status: 'error', error: e.message } })
-      }
-      if (i < campaign.recipients.length - 1) await new Promise(resolve => setTimeout(resolve, 1000))
-    }
-
-    await prisma.campaign.update({ where: { id: campaign.id }, data: { status: 'done', sentCount: { increment: sentCount } } })
-    totalSent += sentCount
-  }
+  await prisma.campaign.updateMany({
+    where: { status: 'scheduled', scheduledAt: { lte: new Date() } },
+    data:  { status: 'sending' }
+  })
 
   // ── 2. Process staggered recipients (new logic for delayed sends) ─────────────────────
   const now = new Date()
@@ -141,7 +104,8 @@ export async function GET(req: NextRequest) {
   // ── 3. Process scheduled follow-ups ─────────────────────
   const scheduledFollowUps = await prisma.followUp.findMany({
     where: { status: 'scheduled', scheduledAt: { lte: new Date() } },
-    include: { recipient: { include: { campaign: { include: { user: true } } } }, template: true }
+    include: { recipient: { include: { campaign: { include: { user: true } } } }, template: true },
+    take: 50 // Limit per cron run to avoid timeout, same as the recipient loop above
   })
 
   // Mark all as 'sending' first to prevent double-send if cron overlaps
@@ -215,7 +179,6 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     success: true,
-    campaignsProcessed: campaigns.length,
     followUpsProcessed: scheduledFollowUps.length,
     staggeredProcessed: staggeredRecipients.length,
     completedCampaigns: doneIds.length,

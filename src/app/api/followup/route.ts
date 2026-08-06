@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { sendEmail, replacePlaceholders, randomDelay } from '@/lib/email'
 import { randomUUID } from 'crypto'
 import { getCurrentUser } from '@/lib/auth'
-import { decrypt } from '@/lib/crypto'
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser()
   if (!user) return NextResponse.json({ error: 'Not logged in' }, { status: 401 })
+  if (!user.encryptedAppPassword || !user.gmailAddress) {
+    return NextResponse.json({ error: 'Connect your Gmail account first (Account tab) before sending.' }, { status: 400 })
+  }
 
   const { campaignId, templateId, followUpType, followUpLevel, selectedIds, scheduledAt, delayMin = 30, delayMax = 90, fromName } = await req.json()
 
@@ -37,78 +38,38 @@ export async function POST(req: NextRequest) {
 
   const followUpNumber = followUpLevel + 1
 
-  // Scheduled — save as FollowUp records with status 'scheduled'
-  if (scheduledAt) {
-    await prisma.followUp.createMany({
-      data: targets.map(r => ({
-        recipientId: r.id,
-        templateId,
-        status:      'scheduled',
-        scheduledAt: new Date(scheduledAt),
-        number:      followUpNumber,
-        delayMin,
-        delayMax,
-        fromName:    fromName || null,
-        fromEmail:   user.gmailAddress || null,
-        trackId:     randomUUID(),
-      }))
-    })
-    return NextResponse.json({ success: true, scheduled: true, count: targets.length })
-  }
+  // Always queue as 'scheduled' FollowUp records with a staggered scheduledAt, whether the
+  // user picked an explicit time or hit "send now" — cron picks these up a few at a time
+  // (see /api/cron section 3), resumable across ticks. This used to send "now" follow-ups
+  // synchronously in this request with an awaited delayMin-delayMax (default 30-90s!) gap
+  // between each recipient — even 2 recipients meant a guaranteed 30s+ hold inside a single
+  // HTTP request, which reliably exceeds Vercel's function timeout and leaves the rest of
+  // the follow-ups simply never sent, no error shown.
+  const baseTime = scheduledAt ? new Date(scheduledAt) : new Date()
+  const avgDelay = (delayMin + delayMax) / 2
+  await prisma.followUp.createMany({
+    data: targets.map((r, index) => ({
+      recipientId: r.id,
+      templateId,
+      status:      'scheduled',
+      scheduledAt: new Date(baseTime.getTime() + index * avgDelay * 1000),
+      number:      followUpNumber,
+      delayMin,
+      delayMax,
+      fromName:    fromName || null,
+      fromEmail:   user.gmailAddress || null,
+      trackId:     randomUUID(),
+    }))
+  })
 
-  if (!user.encryptedAppPassword || !user.gmailAddress) {
-    return NextResponse.json({ error: 'Connect your Gmail account first (Account tab) before sending.' }, { status: 400 })
-  }
-  const gmailUser = user.gmailAddress
-  const gmailAppPassword = decrypt(user.encryptedAppPassword)
-
-  // Send immediately
-  let sentCount = 0
-  const errors: string[] = []
-
-  for (let i = 0; i < targets.length; i++) {
-    const recipient = targets[i]
-    const trackId = randomUUID()
-
-    try {
-      const data    = recipient.data as Record<string, string>
-      const html    = replacePlaceholders(template.body, data).replace(/\n/g, '<br>')
-
-      // Gmail threads by subject — use Re: + original subject for threading
-      // Original subject is stored in recipient data as _subject after first send
-      const originalSubject = (recipient.data as any)._subject
-      const followUpSubject = replacePlaceholders(template.subject, data)
-      const subject = recipient.messageId && originalSubject
-        ? `Re: ${originalSubject}`
-        : followUpSubject
-
-      const result = await sendEmail({
-        to: recipient.email, subject, html, trackId, fromName,
-        gmailUser, gmailAppPassword,
-        attachmentUrl:  template.attachmentUrl  || undefined,
-        attachmentName: template.attachmentName || undefined,
-        inReplyTo:  recipient.messageId || undefined,
-        references: recipient.messageId || undefined,
-      })
-
-      await prisma.$transaction([
-        prisma.followUp.create({
-          data: { recipientId: recipient.id, templateId, status: 'sent', sentAt: new Date(), trackId, messageId: result.messageId || null, number: followUpNumber }
-        }),
-        prisma.recipient.update({ where: { id: recipient.id }, data: { followUpCount: { increment: 1 } } })
-      ])
-      sentCount++
-    } catch (e: any) {
-      await prisma.followUp.create({
-        data: { recipientId: recipient.id, templateId, status: 'error', error: e.message, trackId, number: followUpNumber }
-      })
-      errors.push(`${recipient.email}: ${e.message}`)
-    }
-
-    if (i < targets.length - 1) await randomDelay(delayMin, delayMax)
-  }
-
-  return NextResponse.json({ success: true, sentCount, errors })
+  return NextResponse.json({
+    success: true,
+    scheduled: !!scheduledAt,
+    count: targets.length,
+    message: scheduledAt
+      ? `Scheduled ${targets.length} follow-up${targets.length > 1 ? 's' : ''} for ${baseTime.toLocaleString()}.`
+      : `Queued ${targets.length} follow-up${targets.length > 1 ? 's' : ''} — cron will send them within the next few minutes.`
+  })
 }
 
 // Cancel a scheduled follow-up
