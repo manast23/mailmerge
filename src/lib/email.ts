@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer'
+export { replacePlaceholders, extractPlaceholders } from './placeholders'
 
 function getTransporter(gmailUser: string, gmailAppPassword: string) {
   return nodemailer.createTransport({
@@ -10,16 +11,6 @@ function getTransporter(gmailUser: string, gmailAppPassword: string) {
   })
 }
 
-export function replacePlaceholders(text: string, data: Record<string, string>): string {
-  return text.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
-    return data[key.trim()] !== undefined ? String(data[key.trim()]) : match
-  })
-}
-
-export function extractPlaceholders(text: string): string[] {
-  const matches = text.match(/\{\{([^}]+)\}\}/g) || []
-  return [...new Set(matches.map(m => m.replace(/\{\{|\}\}/g, '').trim()))]
-}
 
 export async function sendEmail({
   to,

@@ -1,5 +1,6 @@
 'use client'
 import React, { useState, useEffect, useRef } from 'react'
+import { extractPlaceholders } from '@/lib/placeholders'
 
 // ─── Types ───────────────────────────────────────────────
 interface Template { id: string; name: string; subject: string; body: string; updatedAt: string; attachmentName?: string; attachmentUrl?: string }
@@ -776,6 +777,12 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
 
   async function startSend() {
     if (!recipients.length) return showToast('Add recipients first', 'error')
+    if (unmatchedPlaceholders.length > 0) {
+      const proceed = confirm(
+        `Heads up: {{${unmatchedPlaceholders.join('}}, {{')}}} don't match any column in your recipients — they'll be sent as literal text instead of replaced.\n\nSend anyway?`
+      )
+      if (!proceed) return
+    }
     setSending(true)
     const r = await fetch('/api/send', {
       method: 'POST',
@@ -790,7 +797,7 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
     setSending(false)
     if (d.error) return showToast(d.error, 'error')
     if (d.scheduled) return showToast('Scheduled successfully!')
-    showToast(`Sent ${d.sentCount} emails!`)
+    showToast(d.message || `Queued ${d.queuedCount} recipients!`)
     loadRecipients()
   }
 
@@ -851,6 +858,16 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
   const sent       = recipients.filter(r => r.status === 'sent').length
   const opened     = recipients.filter(r => r.openedAt).length
 
+  // Merge-tag typo detection: compare {{placeholders}} used in the selected template
+  // against the actual column names imported for this campaign's recipients.
+  const activeTemplate = allTemplates.find(t => t.id === (editTemplateId || campaign.templateId)) || null
+  const templatePlaceholders = activeTemplate
+    ? extractPlaceholders(activeTemplate.subject + ' ' + activeTemplate.body)
+    : []
+  const unmatchedPlaceholders = columns.length
+    ? templatePlaceholders.filter(p => !columns.some(c => c.trim().toLowerCase() === p.trim().toLowerCase()))
+    : []
+
   function getFollowUpGroups(filterFn: (r: Recipient) => boolean) {
     const filtered = recipients.filter(r => r.status === 'sent' && filterFn(r))
     const groups: Record<number, number> = {}
@@ -883,6 +900,17 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
           {refreshing ? <Spinner size={12} /> : '↻'} Refresh
         </button>
       </div>
+
+      {unmatchedPlaceholders.length > 0 && (
+        <div className="mb-6 border border-accentOrange/40 bg-accentOrange/10 rounded-lg px-4 py-3 text-sm">
+          <div className="font-semibold text-ink mb-1">⚠️ Merge tag{unmatchedPlaceholders.length > 1 ? 's' : ''} don't match any imported column — check for typos</div>
+          <div className="text-secondary">
+            Template uses {unmatchedPlaceholders.map(p => <span key={p} className="font-mono bg-white border border-border rounded px-1.5 py-0.5 mx-0.5">{'{{'}{p}{'}}'}</span>)}
+            but your recipients only have: {columns.map(c => <span key={c} className="font-mono">{c}</span>).reduce((acc: any, el, i) => acc === null ? [el] : [acc, ', ', el], null)}.
+            These will be sent as literal text (e.g. "{'{{'}{unmatchedPlaceholders[0]}{'}}'}") instead of being replaced.
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-6 items-start">
         {/* Left — Recipients */}
@@ -1286,6 +1314,7 @@ function ComposeTab({ templates: initialTemplates, onSaved, showToast }: any) {
   const [autoSaving, setAutoSaving]     = useState(false)
   const [attachmentName, setAttachmentName] = useState('')
   const [uploading, setUploading]       = useState(false)
+  const [sendingTest, setSendingTest]   = useState(false)
   const attachRef   = useRef<HTMLInputElement>(null)
   const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const selectedRef = useRef<Template | null>(null)
@@ -1423,6 +1452,20 @@ function ComposeTab({ templates: initialTemplates, onSaved, showToast }: any) {
     showToast('Attachment removed')
   }
 
+  async function sendTestEmail() {
+    if (!selected?.id || selected.id.startsWith('temp_')) return showToast('Save the template first, then try again', 'error')
+    setSendingTest(true)
+    const r = await fetch('/api/test-send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ templateId: selected.id, subject, body })
+    })
+    const d = await r.json()
+    setSendingTest(false)
+    if (d.error) return showToast(d.error, 'error')
+    showToast('Test email sent to your own inbox — check subject/body/attachment before the real send!')
+  }
+
   const placeholders = detectPlaceholders()
 
   return (
@@ -1476,6 +1519,15 @@ function ComposeTab({ templates: initialTemplates, onSaved, showToast }: any) {
           </div>
 
           <div className="flex flex-col gap-3">
+            <button
+              className={`${btnPrimaryCls} flex items-center justify-center gap-2`}
+              onClick={sendTestEmail}
+              disabled={sendingTest || !selected?.id || selected.id.startsWith('temp_')}
+            >
+              {sendingTest && <Spinner />}
+              {sendingTest ? 'Sending test...' : '✉️ Send Test to Myself'}
+            </button>
+
             {placeholders.length > 0 && (
               <div className={cardCls}>
                 <div className="text-xs font-semibold text-secondary uppercase mb-2">Detected placeholders</div>

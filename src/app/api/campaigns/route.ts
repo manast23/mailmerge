@@ -22,6 +22,7 @@ export async function GET() {
     scheduledAt: c.scheduledAt,
     createdAt:   c.createdAt,
     template:    c.template,
+    templateId:  c.templateId,
     total:       c._count.recipients,
     sent:        c.recipients.filter(r => r.status === 'sent').length,
     opened:      c.recipients.filter(r => r.openedAt).length,

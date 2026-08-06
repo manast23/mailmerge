@@ -38,6 +38,7 @@ src/app/
     recipients/     — GET (with followUps included), POST (CSV import) (ownership checked via campaign)
     templates/      — GET, POST, PUT, DELETE templates (scoped by userId)
     send/           — POST send emails for a campaign (requires connected Gmail)
+    test-send/      — POST send a one-off test copy of a template to the logged-in user's own inbox
     followup/       — POST send/schedule follow-ups, DELETE cancel scheduled
     track/          — GET open tracking pixel (handles Recipient + FollowUp)
     upload/         — POST upload attachment, DELETE remove
@@ -48,8 +49,12 @@ src/middleware.ts   — redirects unauthenticated requests to /login (checks coo
 prisma/schema.prisma — DB schema
 prisma/migrations/manual_multiuser_migration.sql — one-time manual SQL for the User table + backfill
 src/lib/
-  email.ts          — sendEmail(), replacePlaceholders(), randomDelay() — transporter built per-call
-                      from the owning user's Gmail credentials, no global env-var transporter
+  email.ts          — sendEmail(), transporter built per-call from the owning user's Gmail
+                      credentials, no global env-var transporter. Re-exports replacePlaceholders/
+                      extractPlaceholders from placeholders.ts for backward compatibility.
+  placeholders.ts   — replacePlaceholders(), extractPlaceholders() — pure functions, no
+                      nodemailer/node deps, safe to import from the client-side page.tsx
+                      (used there for merge-tag typo detection against imported columns)
   prisma.ts         — Prisma client singleton
   auth.ts           — hashPassword, verifyPassword, createSessionToken, verifySessionToken,
                       getCurrentUser() (reads mmp_session cookie)
@@ -74,6 +79,8 @@ src/lib/
 - Each user connects their own Gmail address + App Password (Account tab) — encrypted at rest,
   verified with transporter.verify() before saving
 - Templates with `{{placeholders}}` + TipTap rich text editor
+- Send a test copy of a template to yourself before running a real campaign (Compose tab)
+- Merge-tag typo warning on the campaign detail page (flags `{{tags}}` with no matching column)
 - File attachment per template (stored in Supabase Storage)
 - Auto-save draft while typing (2s debounce)
 - Campaigns: create, send, edit name/template, delete
@@ -195,6 +202,34 @@ src/lib/
   campaign over 450 recipients quietly drops the rest with no warning or automatic continuation
   the next day). Flagged to Anas; needs either an automatic next-day rollover in the cron sweep or
   at minimum a toast telling the user how many were skipped.
+
+## Test-send, merge-tag typo detection, daily-limit rollover (added August 2026)
+- **Test send:** Compose tab now has a "✉️ Send Test to Myself" button (`sendTestEmail()` in
+  `ComposeTab`). Calls `POST /api/test-send` with `{ templateId, subject, body }` — the current
+  on-screen subject/body are sent (not the last auto-saved DB copy, since auto-save has a 2s
+  debounce). Every `{{placeholder}}` is filled with a bracketed sample value (e.g. `{{Name}}` →
+  `[Name]`) so the user can see exactly which merge tags exist in the rendered email, subject
+  gets a `[TEST]` prefix. Sends to the user's own connected Gmail address. Disabled while the
+  template is still an unsaved `temp_...` id.
+- **Merge-tag typo detection:** `CampaignDetail` now computes `unmatchedPlaceholders` — the
+  template's `{{placeholders}}` (via `extractPlaceholders` from the new `src/lib/placeholders.ts`,
+  matched against `allTemplates` by `editTemplateId || campaign.templateId`) that don't
+  case-insensitively match any imported recipient column. Shows an orange warning banner at the
+  top of the campaign detail view listing the mismatched tags and available columns, and
+  `startSend()` now shows a `confirm()` dialog before sending if any mismatches exist (doesn't
+  hard-block — some campaigns may intentionally leave a tag unmatched).
+  - Fixed a related data gap: `GET /api/campaigns` never returned `templateId` on each campaign,
+    only the nested `template.{name,subject}` — added `templateId` to the response so the typo
+    check (and the campaign-edit template dropdown) can find the right template.
+- **Daily-limit silent drop fixed:** `POST /api/send` previously did
+  `campaign.recipients.slice(0, dailyLimit)` (default 450) and left anything beyond that with
+  `sendAfter: null` forever — silently never sent, no warning. Now all pending recipients get a
+  `sendAfter`, staggered within `dailyLimit`-sized batches spread one day apart
+  (`dayOffset = Math.floor(index / dailyLimit)`), so cron picks up each day's batch automatically.
+  Response includes `daysNeeded` and a `message` describing the multi-day queue; the frontend now
+  shows that `message` in the toast instead of the old `Sent ${d.sentCount} emails!` (which was
+  always `undefined` for the normal Send-Now path, since that endpoint returns `queuedCount`, not
+  `sentCount` — emails are actually sent later by cron, not synchronously in the request).
 
 ## UI Redesign — Google Stitch mockups → Tailwind implementation (added August 2026)
 - **Status: implemented and live in `src/app/page.tsx`, `login/page.tsx`, `signup/page.tsx`.**

@@ -34,14 +34,19 @@ export async function POST(req: NextRequest) {
 
   if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
 
-  const pending = campaign.recipients.slice(0, dailyLimit)
+  const pending = campaign.recipients
   if (!pending.length) return NextResponse.json({ success: true, sentCount: 0 })
 
-  // Calculate staggered sendAfter times for each recipient
+  // Calculate staggered sendAfter times for each recipient. If there are more recipients
+  // than the per-day cap, spill the overflow into subsequent days (same time-of-day window)
+  // instead of silently dropping them — cron will pick each batch up once its day arrives.
   const now = new Date()
   const avgDelay = (delayMin + delayMax) / 2
+  const ONE_DAY_MS = 24 * 60 * 60 * 1000
   const updates = pending.map((recipient, index) => {
-    const sendAfter = new Date(now.getTime() + (index * avgDelay) * 1000)
+    const dayOffset = Math.floor(index / dailyLimit)
+    const indexInDay = index % dailyLimit
+    const sendAfter = new Date(now.getTime() + dayOffset * ONE_DAY_MS + (indexInDay * avgDelay) * 1000)
 
     return prisma.recipient.update({
       where: { id: recipient.id },
@@ -61,9 +66,13 @@ export async function POST(req: NextRequest) {
     data: { status: 'sending' }
   })
 
+  const daysNeeded = Math.ceil(pending.length / dailyLimit)
   return NextResponse.json({
     success: true,
     queuedCount: pending.length,
-    message: `Queued ${pending.length} recipients. Emails will be sent with ${delayMin}-${delayMax}s delays via cron.`
+    daysNeeded,
+    message: daysNeeded > 1
+      ? `Queued ${pending.length} recipients across ${daysNeeded} days (${dailyLimit}/day limit) — the rest will send automatically on the following days via cron.`
+      : `Queued ${pending.length} recipients. Emails will be sent with ${delayMin}-${delayMax}s delays via cron.`
   })
 }
