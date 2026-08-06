@@ -91,6 +91,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [showWelcome, setShowWelcome] = useState(true)
   const [userInitial, setUserInitial] = useState('A')
+  const [campaignsLoaded, setCampaignsLoaded] = useState(false)
 
   useEffect(() => {
     loadTemplates(); loadCampaigns()
@@ -118,6 +119,7 @@ export default function App() {
   }
   async function loadCampaigns() {
     const r = await fetch('/api/campaigns'); setCampaigns(await r.json())
+    setCampaignsLoaded(true)
   }
 
   function showToast(msg: string, type: 'success'|'error'|'info' = 'success') {
@@ -249,7 +251,7 @@ export default function App() {
 
           <main className="p-8 max-w-[1200px]">
             {tab === 'home' && (
-              <HomeTab campaigns={campaigns} setTab={setTab} onRefresh={() => { loadCampaigns(); loadTemplates(); showToast('Refreshed!', 'info') }} />
+              <HomeTab campaigns={campaigns} setTab={setTab} loading={!campaignsLoaded} onRefresh={() => { loadCampaigns(); loadTemplates(); showToast('Refreshed!', 'info') }} />
             )}
             {tab === 'campaigns' && (
               <CampaignsTab
@@ -402,7 +404,7 @@ function AccountTab({ showToast }: any) {
 }
 
 // ─── Home Tab ─────────────────────────────────────────────
-function HomeTab({ campaigns, setTab, onRefresh }: any) {
+function HomeTab({ campaigns, setTab, onRefresh, loading }: any) {
   const totalSent    = campaigns.reduce((sum: number, c: Campaign) => sum + (c.sent || 0), 0)
   const totalOpened  = campaigns.reduce((sum: number, c: Campaign) => sum + (c.opened || 0), 0)
   const openRate     = totalSent ? Math.round((totalOpened / totalSent) * 100) : 0
@@ -421,12 +423,23 @@ function HomeTab({ campaigns, setTab, onRefresh }: any) {
         <button className={btnGhostCls} onClick={onRefresh}>↻ Refresh</button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Total Campaigns" value={totalCampaigns} />
-        <StatCard label="Emails Sent" value={totalSent} />
-        <StatCard label="Total Opened" value={totalOpened} />
-        <StatCard label="Open Rate %" value={openRate + '%'} />
-      </div>
+      {loading ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          {[0,1,2,3].map(i => (
+            <div key={i} className={`${cardCls} animate-pulse`}>
+              <div className="h-3 w-20 bg-surface-low rounded mb-3" />
+              <div className="h-7 w-14 bg-surface-low rounded" />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <StatCard label="Total Campaigns" value={totalCampaigns} />
+          <StatCard label="Emails Sent" value={totalSent} />
+          <StatCard label="Total Opened" value={totalOpened} />
+          <StatCard label="Open Rate %" value={openRate + '%'} />
+        </div>
+      )}
 
       <div className="flex gap-3 mb-8">
         <button className={btnPrimaryCls} onClick={() => setTab('campaigns')}>+ New Campaign</button>
@@ -439,7 +452,20 @@ function HomeTab({ campaigns, setTab, onRefresh }: any) {
           <h2 className="text-lg font-semibold text-ink">Recent Campaigns</h2>
           <button className="text-sm text-ink underline underline-offset-4 decoration-border hover:decoration-ink transition-all" onClick={() => setTab('campaigns')}>View all</button>
         </div>
-        {!recentCampaigns.length ? (
+        {loading ? (
+          <div className="animate-pulse space-y-3">
+            {[0,1,2].map(i => (
+              <div key={i} className="flex items-center gap-4">
+                <div className="h-4 flex-1 bg-surface-low rounded" />
+                <div className="h-4 w-16 bg-surface-low rounded" />
+                <div className="h-4 w-12 bg-surface-low rounded" />
+                <div className="h-4 w-12 bg-surface-low rounded" />
+                <div className="h-4 w-16 bg-surface-low rounded" />
+                <div className="h-4 w-20 bg-surface-low rounded" />
+              </div>
+            ))}
+          </div>
+        ) : !recentCampaigns.length ? (
           <EmptyState icon="◈" title="No campaigns yet" text="Create your first campaign to get started" />
         ) : (
           <div className="overflow-x-auto">

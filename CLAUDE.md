@@ -231,6 +231,16 @@ src/lib/
   always `undefined` for the normal Send-Now path, since that endpoint returns `queuedCount`, not
   `sentCount` — emails are actually sent later by cron, not synchronously in the request).
 
+## Fixed: Home screen stats/table flashed empty before loading (added August 2026)
+- Root cause: `HomeTab` computed stats straight off the `campaigns` state, which starts as `[]`
+  until the initial `loadCampaigns()` fetch resolves — so right after clicking "Get Started" the
+  stat cards briefly showed `0` and the Recent Campaigns card showed the "No campaigns yet" empty
+  state, before flipping to real data a moment later. Looked like the app was stuck/lying.
+- Fix: added a `campaignsLoaded` flag in `App` (set `true` once the first `loadCampaigns()`
+  response lands), passed down to `HomeTab` as `loading`. While `loading`, the 4 stat cards and
+  the Recent Campaigns table render `animate-pulse` skeleton placeholders instead of real
+  (momentarily-zero) values or the empty state.
+
 ## UI Redesign — Google Stitch mockups → Tailwind implementation (added August 2026)
 - **Status: implemented and live in `src/app/page.tsx`, `login/page.tsx`, `signup/page.tsx`.**
   The app has been fully converted from CSS Modules to Tailwind CSS, and restyled to match the
