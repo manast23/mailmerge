@@ -299,8 +299,8 @@ function AccountTab({ showToast }: any) {
   const [connected, setConnected] = useState(false)
   const [savedEmail, setSavedEmail] = useState('')
   const [loading, setLoading] = useState(false)
-  const [exporting, setExporting] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [showExportModal, setShowExportModal] = useState(false)
   const importRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -344,25 +344,6 @@ function AccountTab({ showToast }: any) {
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' })
     window.location.href = '/login'
-  }
-
-  async function exportData() {
-    setExporting(true)
-    try {
-      const r = await fetch('/api/export')
-      const data = await r.json()
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `mailmerge-export-${new Date().toISOString().slice(0, 10)}.json`
-      a.click()
-      URL.revokeObjectURL(url)
-      showToast('Exported! Send that file to whoever will import it.')
-    } catch {
-      showToast('Export failed', 'error')
-    }
-    setExporting(false)
   }
 
   async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -451,9 +432,7 @@ function AccountTab({ showToast }: any) {
           switching which Gmail address actually sends the campaign.
         </p>
         <div className="flex gap-2">
-          <button className={btnGhostCls} onClick={exportData} disabled={exporting}>
-            {exporting ? 'Exporting…' : '⬇ Export my data'}
-          </button>
+          <button className={btnGhostCls} onClick={() => setShowExportModal(true)}>⬇ Export…</button>
           <button className={btnGhostCls} onClick={() => importRef.current?.click()} disabled={importing}>
             {importing ? 'Importing…' : '⬆ Import from file'}
           </button>
@@ -462,6 +441,131 @@ function AccountTab({ showToast }: any) {
       </div>
 
       <button className={btnGhostCls} onClick={handleLogout}>Log out</button>
+
+      {showExportModal && <ExportModal onClose={() => setShowExportModal(false)} showToast={showToast} />}
+    </div>
+  )
+}
+
+function ExportModal({ onClose, showToast }: any) {
+  const [templates, setTemplates] = useState<any[]>([])
+  const [campaigns, setCampaigns] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [manualTemplateIds, setManualTemplateIds] = useState<Set<string>>(new Set())
+  const [campaignIds, setCampaignIds] = useState<Set<string>>(new Set())
+  const [exporting, setExporting] = useState(false)
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/templates').then(r => r.json()),
+      fetch('/api/campaigns').then(r => r.json()),
+    ]).then(([t, c]) => { setTemplates(t); setCampaigns(c); setLoading(false) })
+  }, [])
+
+  // Templates required because a selected campaign uses them — locked on, can't be
+  // unticked independently of the campaign itself.
+  const autoTemplateIds = new Set(
+    campaigns.filter(c => campaignIds.has(c.id) && c.templateId).map(c => c.templateId)
+  )
+  const effectiveTemplateIds = new Set([...manualTemplateIds, ...autoTemplateIds])
+
+  function toggleCampaign(id: string) {
+    setCampaignIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+  function toggleTemplate(id: string) {
+    if (autoTemplateIds.has(id)) return // locked — untick the campaign instead
+    setManualTemplateIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  async function runExport() {
+    if (!effectiveTemplateIds.size && !campaignIds.size) return showToast('Select at least one template or campaign', 'error')
+    setExporting(true)
+    try {
+      const r = await fetch('/api/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ templateIds: [...effectiveTemplateIds], campaignIds: [...campaignIds] })
+      })
+      const data = await r.json()
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `mailmerge-export-${new Date().toISOString().slice(0, 10)}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      showToast('Exported! Send that file to whoever will import it.')
+      onClose()
+    } catch {
+      showToast('Export failed', 'error')
+    }
+    setExporting(false)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl border border-border max-w-lg w-full max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="p-5 border-b border-border">
+          <h2 className="text-lg font-semibold text-ink">Export data</h2>
+          <p className="text-sm text-secondary mt-1">Pick what to include. Recipients are never exported — only campaign/template setup.</p>
+        </div>
+
+        <div className="overflow-y-auto p-5 space-y-6 flex-1">
+          {loading ? (
+            <div className="flex items-center justify-center py-8 text-secondary text-sm gap-2"><Spinner /> Loading…</div>
+          ) : (
+            <>
+              <div>
+                <h3 className="text-sm font-semibold text-ink mb-2">Campaigns</h3>
+                {!campaigns.length && <p className="text-xs text-secondary">No campaigns yet.</p>}
+                <div className="space-y-1.5">
+                  {campaigns.map(c => (
+                    <label key={c.id} className="flex items-center gap-2 text-sm text-ink cursor-pointer">
+                      <input type="checkbox" checked={campaignIds.has(c.id)} onChange={() => toggleCampaign(c.id)} />
+                      {c.name}
+                      <span className="text-xs text-secondary">({c.template?.name || 'no template'})</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-ink mb-2">Templates</h3>
+                {!templates.length && <p className="text-xs text-secondary">No templates yet.</p>}
+                <div className="space-y-1.5">
+                  {templates.map(t => (
+                    <label key={t.id} className={`flex items-center gap-2 text-sm text-ink ${autoTemplateIds.has(t.id) ? 'opacity-70' : 'cursor-pointer'}`}>
+                      <input type="checkbox" checked={effectiveTemplateIds.has(t.id)} disabled={autoTemplateIds.has(t.id)} onChange={() => toggleTemplate(t.id)} />
+                      {t.name}
+                      {autoTemplateIds.has(t.id) && (
+                        <span className="text-xs bg-surface-low text-secondary rounded px-1.5 py-0.5">
+                          Auto-included (used by {campaigns.find(c => c.templateId === t.id && campaignIds.has(c.id))?.name})
+                        </span>
+                      )}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="p-5 border-t border-border flex justify-end gap-2">
+          <button className={btnGhostCls} onClick={onClose}>Cancel</button>
+          <button className={`${btnPrimaryCls} flex items-center gap-2`} onClick={runExport} disabled={exporting || loading}>
+            {exporting && <Spinner />}
+            {exporting ? 'Exporting…' : `Export ${effectiveTemplateIds.size + campaignIds.size ? `(${campaignIds.size} campaign${campaignIds.size !== 1 ? 's' : ''}, ${effectiveTemplateIds.size} template${effectiveTemplateIds.size !== 1 ? 's' : ''})` : ''}`}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

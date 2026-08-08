@@ -185,6 +185,19 @@ src/lib/
   transporter (`src/lib/email.ts`), there's no shared bottleneck or global rate limit tied to
   account count at this scale.
 
+## Selective export + no-recipients (updated August 2026)
+Reworked per follow-up request — export is now selective, not all-or-nothing, and never
+includes recipients at all (not even optionally):
+- `POST /api/export` (was `GET`) now takes `{ templateIds, campaignIds }`. Any template used by
+  a selected campaign is automatically unioned in server-side too, even if not explicitly
+  passed — a campaign is unimportable without its template.
+- Campaigns in the export carry `templateExportedId` only, no `recipients` field at all —
+  the importing account always starts that campaign at 0 recipients and adds its own list.
+- New `ExportModal` in `AccountTab` (opened via "⬇ Export…") lists the user's campaigns and
+  templates with checkboxes. Ticking a campaign auto-locks its template's checkbox on (shown
+  as "Auto-included (used by X)", can't be unticked independently — untick the campaign
+  instead). Templates can also be selected independently of any campaign.
+
 ## New feature: Export / Import data between accounts (added August 2026)
 - **Use case that prompted this:** Anas runs campaigns for his brother's professor outreach
   using a Gmail address he created himself (so he can send from his own laptop instead of
