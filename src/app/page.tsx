@@ -173,15 +173,15 @@ export default function App() {
               <h1 className="text-2xl font-semibold text-white tracking-tighter opacity-90">Mail Merge Pro</h1>
             </div>
             <div className="flex-1 flex flex-col justify-center relative z-10">
-              <p className="text-white font-light text-5xl tracking-tight leading-tight mb-10">Outreach, refined.</p>
-              <div className="grid grid-cols-2 gap-3 max-w-md">
+              <p className="text-white font-light text-3xl tracking-tight leading-tight mb-8">Outreach, refined.</p>
+              <div className="grid grid-cols-2 gap-2.5 max-w-sm">
                 {[
                   ['📄', 'Templates with placeholders'],
                   ['📊', 'Open tracking & analytics'],
                   ['📎', 'File attachments per template'],
                   ['⏰', 'Scheduled sending'],
                 ].map(([icon, label]) => (
-                  <div key={label} className="flex items-center gap-2 text-xs text-white/70 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
+                  <div key={label} className="flex items-center gap-1.5 text-[11px] text-white/70 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5">
                     <span>{icon}</span><span>{label}</span>
                   </div>
                 ))}
