@@ -11,6 +11,7 @@ export async function GET() {
       email: user.email,
       gmailAddress: user.gmailAddress,
       gmailConnected: !!user.encryptedAppPassword,
+      avatarUrl: user.avatarUrl,
     }
   })
 }

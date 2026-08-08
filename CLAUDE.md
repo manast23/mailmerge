@@ -185,6 +185,27 @@ src/lib/
   transporter (`src/lib/email.ts`), there's no shared bottleneck or global rate limit tied to
   account count at this scale.
 
+## New feature: profile photo upload (added August 2026)
+- Manual upload chosen over trying to pull a photo from the connected Gmail account — an App
+  Password (used for sending) has no access to Google's People API, that would require a full
+  separate Google OAuth sign-in flow just for a photo, not worth the added complexity/security
+  surface for this.
+- `User.avatarUrl String?` added to schema. **Needs a manual migration** (Prisma generate is
+  blocked in this sandbox, per the standing rule — run in Supabase SQL Editor):
+  ```sql
+  ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "avatarUrl" TEXT;
+  ```
+- `POST /api/avatar` — accepts an image file, uploads to the same Supabase `attachments`
+  bucket under a fixed `avatars/{userId}` path (re-upload just overwrites, no orphaned old
+  files), returns a 1-year signed URL with a `?v=timestamp` cache-buster appended so the
+  browser doesn't keep showing a stale image after a re-upload. `DELETE /api/avatar` clears it.
+- `Avatar` component now takes an optional `src` — renders the photo if present, falls back to
+  the colored-initial circle otherwise. Sizing is via a `className` prop (not a numeric `size`
+  prop — Tailwind can't resolve interpolated class names like `h-${size}` at build time).
+- `GET /api/auth/me` now also returns `avatarUrl`; `App` holds it in state and passes it to
+  both the sidebar `Avatar` and `AccountTab` (which has the upload/remove UI, in a new card at
+  the top of the Account page).
+
 ## Selective export + no-recipients (updated August 2026)
 Reworked per follow-up request — export is now selective, not all-or-nothing, and never
 includes recipients at all (not even optionally):

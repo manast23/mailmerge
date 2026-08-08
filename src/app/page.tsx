@@ -17,9 +17,12 @@ const btnPrimaryCls = "px-4 py-2 bg-ink text-white text-sm font-medium rounded-l
 const btnGhostCls = "px-4 py-2 bg-white border border-border text-ink text-sm font-medium rounded-lg hover:bg-surface-low transition-all disabled:opacity-50"
 const badgeCls = "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium"
 
-function Avatar({ initial }: { initial: string }) {
+function Avatar({ initial, src, className = 'h-8 w-8 text-sm' }: { initial: string, src?: string | null, className?: string }) {
+  if (src) {
+    return <img src={src} alt="Profile" className={`${className} rounded-full object-cover shrink-0 border border-border`} />
+  }
   return (
-    <div className="h-8 w-8 rounded-full bg-ink flex items-center justify-center text-white font-semibold text-sm shrink-0">
+    <div className={`${className} rounded-full bg-ink flex items-center justify-center text-white font-semibold shrink-0`}>
       {initial}
     </div>
   )
@@ -94,12 +97,14 @@ export default function App() {
   const [welcomeChecked, setWelcomeChecked] = useState(false)
   const [userInitial, setUserInitial] = useState('A')
   const [userName, setUserName] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [campaignsLoaded, setCampaignsLoaded] = useState(false)
 
   useEffect(() => {
     loadTemplates(); loadCampaigns()
     fetch('/api/auth/me').then(r => r.json()).then(d => {
       if (d?.user?.name) { setUserInitial(d.user.name.trim()[0]?.toUpperCase() || 'A'); setUserName(d.user.name.trim().split(' ')[0]) }
+      if (d?.user?.avatarUrl) setAvatarUrl(d.user.avatarUrl)
     }).catch(() => {})
     // Only show the "Get Started" screen the first time this browser ever sees the app —
     // after that, go straight to the dashboard instead of gating every single visit.
@@ -274,7 +279,7 @@ export default function App() {
           {/* Top bar: minimal — page title + initials avatar only */}
           <header className="h-16 flex items-center justify-between px-8 border-b border-border bg-bg sticky top-0 z-30">
             <span className="text-sm font-medium text-secondary">{tabLabel[tab]}</span>
-            <Avatar initial={userInitial} />
+            <Avatar initial={userInitial} src={avatarUrl} />
           </header>
 
           <main className="p-8 max-w-[1200px]">
@@ -300,7 +305,7 @@ export default function App() {
               <DashboardTab campaigns={campaigns} showToast={showToast} />
             )}
             {tab === 'account' && (
-              <AccountTab showToast={showToast} />
+              <AccountTab showToast={showToast} avatarUrl={avatarUrl} onAvatarChange={setAvatarUrl} userInitial={userInitial} />
             )}
           </main>
         </div>
@@ -318,7 +323,7 @@ export default function App() {
 }
 
 // ─── Account Tab ──────────────────────────────────────────
-function AccountTab({ showToast }: any) {
+function AccountTab({ showToast, avatarUrl, onAvatarChange, userInitial }: any) {
   const [user, setUser] = useState<any>(null)
   const [gmailAddress, setGmailAddress] = useState('')
   const [appPassword, setAppPassword] = useState('')
@@ -328,7 +333,9 @@ function AccountTab({ showToast }: any) {
   const [loading, setLoading] = useState(false)
   const [importing, setImporting] = useState(false)
   const [showExportModal, setShowExportModal] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const importRef = useRef<HTMLInputElement>(null)
+  const avatarRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.json()).then(d => setUser(d.user))
@@ -373,6 +380,28 @@ function AccountTab({ showToast }: any) {
     window.location.href = '/login'
   }
 
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingAvatar(true)
+    const form = new FormData(); form.append('file', file)
+    const r = await fetch('/api/avatar', { method: 'POST', body: form })
+    const d = await r.json()
+    setUploadingAvatar(false)
+    if (d.error) return showToast(d.error, 'error')
+    onAvatarChange?.(d.avatarUrl)
+    showToast('Profile photo updated!')
+    e.target.value = ''
+  }
+
+  async function handleAvatarRemove() {
+    setUploadingAvatar(true)
+    await fetch('/api/avatar', { method: 'DELETE' })
+    setUploadingAvatar(false)
+    onAvatarChange?.(null)
+    showToast('Profile photo removed', 'info')
+  }
+
   async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -401,6 +430,24 @@ function AccountTab({ showToast }: any) {
       <p className="text-sm text-secondary mb-6">
         {user ? `${user.name} · ${user.email}` : 'Loading…'}
       </p>
+
+      <div className={`${cardCls} mb-4 flex items-center gap-4`}>
+        <Avatar initial={userInitial} src={avatarUrl} className="h-16 w-16 text-xl" />
+        <div className="flex-1">
+          <div className="text-sm font-medium text-ink mb-1">Profile photo</div>
+          <div className="flex gap-2">
+            <button className={btnGhostCls} onClick={() => avatarRef.current?.click()} disabled={uploadingAvatar}>
+              {uploadingAvatar ? 'Uploading…' : avatarUrl ? 'Change' : 'Upload'}
+            </button>
+            {avatarUrl && (
+              <button className="text-sm text-accentRed hover:underline underline-offset-4" onClick={handleAvatarRemove} disabled={uploadingAvatar}>
+                Remove
+              </button>
+            )}
+          </div>
+          <input ref={avatarRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+        </div>
+      </div>
 
       <div className={`${cardCls} mb-4`}>
         <div className="flex items-center justify-between mb-5">

@@ -15,6 +15,7 @@ model User {
   passwordHash         String
   gmailAddress         String?
   encryptedAppPassword String?
+  avatarUrl            String?
   createdAt            DateTime   @default(now())
   templates            Template[]
   campaigns            Campaign[]
