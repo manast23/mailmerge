@@ -337,6 +337,22 @@ before this was UI polish, this is the actual server bug.**
   always `undefined` for the normal Send-Now path, since that endpoint returns `queuedCount`, not
   `sentCount` — emails are actually sent later by cron, not synchronously in the request).
 
+## Welcome screen redesigned to match login page + shown only once (added August 2026)
+- Replaced the centered dark-overlay "Get Started" card with the same split-screen layout as
+  `/login` (`src/app/login/page.tsx`) — dark `bg-ink` dotted brand panel on the left (55%,
+  hidden below `lg`), white form-style panel on the right (45%). The 4 feature bullets that
+  used to sit inside the card now live in the left panel under the "Outreach, refined."
+  tagline; the right panel just has "Welcome back, {first name} 👋" + a single "Get Started"
+  button, no form fields (person is already authenticated at this point).
+- **Shown once per browser, not on every visit**: `enterApp()` sets
+  `localStorage.setItem('mmp_seen_welcome', '1')`; on mount, if that key exists,
+  `showWelcome` starts `false` and the dashboard renders immediately. A `welcomeChecked` flag
+  gates both the welcome screen and the main app shell until the `localStorage` check has run
+  (avoids a server/client render mismatch and a flash of the wrong screen) — during that brief
+  window neither renders, just the plain `bg-bg` background.
+- `userName` (first name) is now captured alongside `userInitial` from `/api/auth/me` for the
+  "Welcome back, X" greeting.
+
 ## Fixed: Home screen stats/table flashed empty before loading (added August 2026)
 - Root cause: `HomeTab` computed stats straight off the `campaigns` state, which starts as `[]`
   until the initial `loadCampaigns()` fetch resolves — so right after clicking "Get Started" the

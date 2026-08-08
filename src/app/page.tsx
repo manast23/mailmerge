@@ -91,14 +91,20 @@ export default function App() {
   const [toast, setToast]           = useState<{msg: string, type: 'success'|'error'|'info'} | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [showWelcome, setShowWelcome] = useState(true)
+  const [welcomeChecked, setWelcomeChecked] = useState(false)
   const [userInitial, setUserInitial] = useState('A')
+  const [userName, setUserName] = useState('')
   const [campaignsLoaded, setCampaignsLoaded] = useState(false)
 
   useEffect(() => {
     loadTemplates(); loadCampaigns()
     fetch('/api/auth/me').then(r => r.json()).then(d => {
-      if (d?.user?.name) setUserInitial(d.user.name.trim()[0]?.toUpperCase() || 'A')
+      if (d?.user?.name) { setUserInitial(d.user.name.trim()[0]?.toUpperCase() || 'A'); setUserName(d.user.name.trim().split(' ')[0]) }
     }).catch(() => {})
+    // Only show the "Get Started" screen the first time this browser ever sees the app —
+    // after that, go straight to the dashboard instead of gating every single visit.
+    if (localStorage.getItem('mmp_seen_welcome')) setShowWelcome(false)
+    setWelcomeChecked(true)
   }, [])
 
   // Keep campaign statuses fresh without needing a manual page refresh.
@@ -150,45 +156,66 @@ export default function App() {
   const mainMargin   = sidebarOpen ? 'ml-[220px]' : 'ml-[60px]'
   const tabLabel: Record<Tab,string> = { home: 'Home', campaigns: 'Campaigns', compose: 'Compose', dashboard: 'Dashboard', account: 'Account' }
 
+  function enterApp() {
+    localStorage.setItem('mmp_seen_welcome', '1')
+    setShowWelcome(false)
+  }
+
   return (
     <div className="min-h-screen bg-bg text-ink">
-      {/* Welcome Screen */}
-      {showWelcome && (
-        <div className="fixed inset-0 z-50 bg-ink flex items-center justify-center p-6">
-          <div className="w-full max-w-[420px] bg-white rounded-2xl p-10 text-center">
-            <div className="flex items-center justify-center gap-2 mb-6">
-              <div className="w-9 h-9 bg-ink rounded-lg flex items-center justify-center">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <rect x="2" y="4" width="20" height="16" rx="3" stroke="white" strokeWidth="1.8"/>
-                  <path d="M2 8l10 6 10-6" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
-                </svg>
+      {/* Welcome Screen — same split layout as /login, shown once per browser */}
+      {showWelcome && welcomeChecked && (
+        <div className="fixed inset-0 z-50 flex bg-bg">
+          {/* Left brand panel — matches login page exactly, feature list added */}
+          <div className="hidden lg:flex flex-col w-[55%] bg-ink relative overflow-hidden p-12"
+            style={{ backgroundImage: 'radial-gradient(rgba(255,255,255,0.1) 1px, transparent 0)', backgroundSize: '24px 24px' }}>
+            <div className="relative z-10">
+              <h1 className="text-2xl font-semibold text-white tracking-tighter opacity-90">Mail Merge Pro</h1>
+            </div>
+            <div className="flex-1 flex flex-col justify-center relative z-10">
+              <p className="text-white font-light text-5xl tracking-tight leading-tight mb-10">Outreach, refined.</p>
+              <div className="grid grid-cols-2 gap-3 max-w-md">
+                {[
+                  ['📄', 'Templates with placeholders'],
+                  ['📊', 'Open tracking & analytics'],
+                  ['📎', 'File attachments per template'],
+                  ['⏰', 'Scheduled sending'],
+                ].map(([icon, label]) => (
+                  <div key={label} className="flex items-center gap-2 text-xs text-white/70 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
+                    <span>{icon}</span><span>{label}</span>
+                  </div>
+                ))}
               </div>
-              <div className="text-lg font-semibold text-ink">Mail Merge <span className="text-secondary font-normal">PRO</span></div>
             </div>
-            <h1 className="text-2xl font-semibold text-ink leading-tight mb-3">Send smarter.<br/>Track what matters.</h1>
-            <p className="text-sm text-secondary mb-6">Personalised email campaigns with open tracking, scheduled sending, and CSV exports — all in one place.</p>
-            <div className="grid grid-cols-2 gap-3 mb-8 text-left">
-              {[
-                ['📄', 'Templates with placeholders'],
-                ['📊', 'Open tracking & analytics'],
-                ['📎', 'File attachments per template'],
-                ['⏰', 'Scheduled sending'],
-              ].map(([icon, label]) => (
-                <div key={label} className="flex items-center gap-2 text-xs text-secondary bg-surface-low rounded-lg px-3 py-2">
-                  <span>{icon}</span><span>{label}</span>
-                </div>
-              ))}
+          </div>
+
+          {/* Right panel */}
+          <div className="w-full lg:w-[45%] bg-bg flex flex-col items-center justify-center p-12 lg:p-16">
+            <div className="w-full max-w-[380px] space-y-8">
+              <div className="lg:hidden mb-6 flex flex-col items-center">
+                <h1 className="text-2xl font-semibold text-ink">Mail Merge Pro</h1>
+              </div>
+
+              <div>
+                <h2 className="text-xl font-semibold text-ink">Welcome back{userName ? `, ${userName}` : ''} 👋</h2>
+                <p className="text-sm text-secondary mt-1">Your campaigns are ready when you are.</p>
+              </div>
+
+              <button
+                className="w-full py-3 bg-ink text-white text-sm font-medium rounded-lg hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                onClick={enterApp}
+              >
+                Get Started
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </button>
+
+              <p className="text-xs text-outline text-center">Your campaigns, your data, your Gmail</p>
             </div>
-            <button className={`${btnPrimaryCls} w-full flex items-center justify-center gap-2`} onClick={() => setShowWelcome(false)}>
-              Get Started
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-            </button>
-            <p className="text-xs text-outline mt-4">Your campaigns, your data, your Gmail</p>
           </div>
         </div>
       )}
 
-      {!showWelcome && (<>
+      {!showWelcome && welcomeChecked && (<>
         {/* Sidebar */}
         <aside className={`fixed left-0 top-0 h-full ${sidebarWidth} border-r border-border bg-white flex flex-col py-6 z-40 transition-all duration-200`}>
           <div className={`flex items-center gap-2 mb-8 ${sidebarOpen ? 'px-4' : 'px-0 justify-center'}`}>
