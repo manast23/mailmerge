@@ -185,6 +185,19 @@ src/lib/
   transporter (`src/lib/email.ts`), there's no shared bottleneck or global rate limit tied to
   account count at this scale.
 
+## Fixed: recipient table showed "Pending" for scheduled campaigns (added August 2026)
+- **Not a functional bug — the schedule itself worked correctly, this was a display-only
+  label bug.** In `CampaignDetail`'s recipients table, the status badge logic explicitly did
+  `r.status === 'pending' && campaign.status === 'scheduled' ? 'pending' : r.status` — i.e. it
+  detected "this row belongs to a scheduled campaign" and then mapped it right back to the same
+  `'pending'` label anyway, so there was never any visible difference between a normal pending
+  row and one waiting on a schedule. `StatusBadge` also had no `'scheduled'` entry in its
+  color/label maps at all.
+- **Fix:** now passes `'scheduled'` through properly, and `StatusBadge` has a dedicated
+  blue "⏰ Scheduled" style for it. Same no-op existed for the follow-up status badge
+  (`f.status === 'scheduled' ? 'pending' : f.status`) — simplified to just pass `f.status`
+  straight through now that `'scheduled'` renders correctly.
+
 ## Root-caused: scheduled sends & "Send Now" follow-ups timing out (added August 2026)
 **This is the real fix for "scheduled campaign doesn't send until I refresh" — everything
 before this was UI polish, this is the actual server bug.**

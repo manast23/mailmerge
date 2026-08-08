@@ -47,13 +47,14 @@ function EmptyState({ icon, title, text, action }: { icon: string, title: string
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    opened:  "bg-green-50 text-green-700",
-    sent:    "bg-surface-low text-ink",
-    pending: "bg-orange-50 text-orange-600",
-    error:   "bg-red-50 text-accentRed",
+    opened:    "bg-green-50 text-green-700",
+    sent:      "bg-surface-low text-ink",
+    pending:   "bg-orange-50 text-orange-600",
+    scheduled: "bg-blue-50 text-blue-600",
+    error:     "bg-red-50 text-accentRed",
   }
   const label: Record<string, string> = {
-    opened: '✓ Opened', sent: '✓ Sent', pending: '· Pending', error: '✗ Error'
+    opened: '✓ Opened', sent: '✓ Sent', pending: '· Pending', scheduled: '⏰ Scheduled', error: '✗ Error'
   }
   return <span className={`${badgeCls} ${map[status] || map.pending}`}>{label[status] || status}</span>
 }
@@ -1089,7 +1090,7 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
                           <td key={c} className="px-3 py-2">{(r.data as any)[c] || '—'}</td>
                         ))}
                         <td className="px-3 py-2 text-center">
-                          <StatusBadge status={r.openedAt ? 'opened' : r.status === 'pending' && campaign.status === 'scheduled' ? 'pending' : r.status} />
+                          <StatusBadge status={r.openedAt ? 'opened' : r.status === 'pending' && campaign.status === 'scheduled' ? 'scheduled' : r.status} />
                         </td>
                         <td className="px-3 py-2 text-center text-xs">
                           {r.openedAt ? <span className="text-green-600">{new Date(r.openedAt).toLocaleString('en-PK',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true})}</span> : <span className="text-outline">—</span>}
@@ -1135,7 +1136,7 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
                                       ? `⏰ ${new Date(f.scheduledAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})} ${new Date(f.scheduledAt).toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:true})}`
                                       : f.sentAt ? new Date(f.sentAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'}) : '—'}
                                   </span>
-                                  <StatusBadge status={f.openedAt ? 'opened' : f.status === 'scheduled' ? 'pending' : f.status} />
+                                  <StatusBadge status={f.openedAt ? 'opened' : f.status} />
                                   {f.status === 'scheduled' && (
                                     <button onClick={e => { e.stopPropagation(); cancelFollowUp(f.id, r.id) }} className="text-accentRed text-xs px-1" title="Cancel scheduled follow-up">✕</button>
                                   )}
