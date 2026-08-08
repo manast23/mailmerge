@@ -185,6 +185,30 @@ src/lib/
   transporter (`src/lib/email.ts`), there's no shared bottleneck or global rate limit tied to
   account count at this scale.
 
+## New feature: Export / Import data between accounts (added August 2026)
+- **Use case that prompted this:** Anas runs campaigns for his brother's professor outreach
+  using a Gmail address he created himself (so he can send from his own laptop instead of
+  needing his brother's device/login), and wanted to move the already-built templates +
+  campaign/recipient setup from the brother's existing account into this new one without
+  rebuilding everything by hand.
+- **Design choice — export/import file, not a direct cross-account copy:** considered letting
+  one account push data straight into another by just naming the target (e.g. by email), but
+  that's a bad pattern for a multi-tenant app even at small scale — it'd mean any user could
+  write into any other user's account by guessing/knowing their email. A downloadable JSON
+  file that the person manually re-uploads into the target account keeps each account's data
+  isolated and auth-scoped the same way everything else in the app already is, and doubles as
+  a generically useful backup/restore feature for any future user.
+- `GET /api/export` — returns the current user's templates + campaigns as JSON. Recipients are
+  exported as just `{ email, data }` (no send/open history, no status) — the whole point is the
+  *importing* account does the actual sending from here on. Templates carry their
+  `attachmentUrl` as-is; Supabase signed URLs aren't tied to which app-user requests them, so
+  the attachment file itself doesn't need to be re-uploaded.
+- `POST /api/import` — recreates templates under the *current* user, builds an
+  exportedId → new-id map, then recreates campaigns (status `'draft'`) pointing at the right
+  new template id, with recipients inserted fresh (`status: 'pending'`).
+- UI: Account tab → "Move Data Between Accounts" card, with Export/Import buttons
+  (`exportData()` / `handleImportFile()` in `AccountTab`).
+
 ## Fixed: recipient table showed "Pending" for scheduled campaigns (added August 2026)
 - **Not a functional bug — the schedule itself worked correctly, this was a display-only
   label bug.** In `CampaignDetail`'s recipients table, the status badge logic explicitly did

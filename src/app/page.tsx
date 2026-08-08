@@ -299,6 +299,9 @@ function AccountTab({ showToast }: any) {
   const [connected, setConnected] = useState(false)
   const [savedEmail, setSavedEmail] = useState('')
   const [loading, setLoading] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const importRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.json()).then(d => setUser(d.user))
@@ -341,6 +344,47 @@ function AccountTab({ showToast }: any) {
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' })
     window.location.href = '/login'
+  }
+
+  async function exportData() {
+    setExporting(true)
+    try {
+      const r = await fetch('/api/export')
+      const data = await r.json()
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `mailmerge-export-${new Date().toISOString().slice(0, 10)}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      showToast('Exported! Send that file to whoever will import it.')
+    } catch {
+      showToast('Export failed', 'error')
+    }
+    setExporting(false)
+  }
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImporting(true)
+    try {
+      const text = await file.text()
+      const parsed = JSON.parse(text)
+      const r = await fetch('/api/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(parsed)
+      })
+      const d = await r.json()
+      if (!r.ok) { showToast(d.error || 'Import failed', 'error'); setImporting(false); return }
+      showToast(`Imported ${d.templatesCreated} templates and ${d.campaignsCreated} campaigns (${d.recipientsCreated} recipients)!`)
+    } catch {
+      showToast('Could not read that file — make sure it\'s an exported .json file', 'error')
+    }
+    setImporting(false)
+    e.target.value = ''
   }
 
   return (
@@ -397,6 +441,24 @@ function AccountTab({ showToast }: any) {
           App Passwords, generate one for "Mail", and paste the 16-character code above.
           Your password is stored encrypted and is only used to send your own campaigns.
         </p>
+      </div>
+
+      <div className={`${cardCls} mb-4`}>
+        <h2 className="text-lg font-semibold text-ink mb-1">Move Data Between Accounts</h2>
+        <p className="text-sm text-secondary mb-4">
+          Export all your templates and campaigns (recipients included, send history left
+          behind) as a file, then import it into a different account — useful when you're
+          switching which Gmail address actually sends the campaign.
+        </p>
+        <div className="flex gap-2">
+          <button className={btnGhostCls} onClick={exportData} disabled={exporting}>
+            {exporting ? 'Exporting…' : '⬇ Export my data'}
+          </button>
+          <button className={btnGhostCls} onClick={() => importRef.current?.click()} disabled={importing}>
+            {importing ? 'Importing…' : '⬆ Import from file'}
+          </button>
+          <input ref={importRef} type="file" accept=".json" className="hidden" onChange={handleImportFile} />
+        </div>
       </div>
 
       <button className={btnGhostCls} onClick={handleLogout}>Log out</button>
