@@ -185,6 +185,18 @@ src/lib/
   transporter (`src/lib/email.ts`), there's no shared bottleneck or global rate limit tied to
   account count at this scale.
 
+## Added crop step before avatar upload (added August 2026)
+- New `AvatarCropModal` — no new npm dependency, plain canvas + drag/zoom. Circular
+  `CONTAINER` (280px) preview: image is CSS-sized to "cover" (`baseScale = max(container/w,
+  container/h)`) times a `zoom` slider (1×–3×), positioned by a `pos {x,y}` top-left offset
+  that's dragged (mouse + touch) and clamped so the image always fully covers the circle
+  (`minX/minY = min(0, container - dispW/H)`, `x/y` clamped to `[minX, 0]`).
+  "Save photo" draws the same region onto an off-screen `OUTPUT` (400px) canvas, scaling the
+  container-space `pos`/`dispW`/`dispH` by `OUTPUT/CONTAINER`, exports as a JPEG blob.
+- `AccountTab`'s file input no longer uploads immediately — it sets `cropFile`, which opens
+  the modal; `onSave` uploads the cropped blob via the existing `/api/avatar` (unchanged,
+  already just takes a FormData file).
+
 ## New feature: profile photo upload (added August 2026)
 - Manual upload chosen over trying to pull a photo from the connected Gmail account — an App
   Password (used for sending) has no access to Google's People API, that would require a full

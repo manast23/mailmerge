@@ -334,6 +334,7 @@ function AccountTab({ showToast, avatarUrl, onAvatarChange, userInitial }: any) 
   const [importing, setImporting] = useState(false)
   const [showExportModal, setShowExportModal] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [cropFile, setCropFile] = useState<File | null>(null)
   const importRef = useRef<HTMLInputElement>(null)
   const avatarRef = useRef<HTMLInputElement>(null)
 
@@ -383,15 +384,19 @@ function AccountTab({ showToast, avatarUrl, onAvatarChange, userInitial }: any) 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    setCropFile(file)
+    e.target.value = ''
+  }
+
+  async function uploadCroppedAvatar(blob: Blob) {
     setUploadingAvatar(true)
-    const form = new FormData(); form.append('file', file)
+    const form = new FormData(); form.append('file', blob, 'avatar.jpg')
     const r = await fetch('/api/avatar', { method: 'POST', body: form })
     const d = await r.json()
     setUploadingAvatar(false)
     if (d.error) return showToast(d.error, 'error')
     onAvatarChange?.(d.avatarUrl)
     showToast('Profile photo updated!')
-    e.target.value = ''
   }
 
   async function handleAvatarRemove() {
@@ -448,6 +453,14 @@ function AccountTab({ showToast, avatarUrl, onAvatarChange, userInitial }: any) 
           <input ref={avatarRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
         </div>
       </div>
+
+      {cropFile && (
+        <AvatarCropModal
+          file={cropFile}
+          onCancel={() => setCropFile(null)}
+          onSave={async (blob) => { setCropFile(null); await uploadCroppedAvatar(blob) }}
+        />
+      )}
 
       <div className={`${cardCls} mb-4`}>
         <div className="flex items-center justify-between mb-5">
@@ -517,6 +530,126 @@ function AccountTab({ showToast, avatarUrl, onAvatarChange, userInitial }: any) 
       <button className={btnGhostCls} onClick={handleLogout}>Log out</button>
 
       {showExportModal && <ExportModal onClose={() => setShowExportModal(false)} showToast={showToast} />}
+    </div>
+  )
+}
+
+function AvatarCropModal({ file, onCancel, onSave }: { file: File, onCancel: () => void, onSave: (blob: Blob) => void }) {
+  const CONTAINER = 280   // on-screen crop circle diameter (px)
+  const OUTPUT = 400      // exported image resolution (px, square)
+
+  const [imgUrl, setImgUrl] = useState('')
+  const [natural, setNatural] = useState({ w: 0, h: 0 })
+  const [zoom, setZoom] = useState(1)
+  const [pos, setPos] = useState({ x: 0, y: 0 }) // top-left of the displayed image, in container-space px
+  const [saving, setSaving] = useState(false)
+  const dragRef = useRef<{ startX: number, startY: number, origX: number, origY: number } | null>(null)
+  const imgElRef = useRef<HTMLImageElement>(null)
+
+  useEffect(() => {
+    const url = URL.createObjectURL(file)
+    setImgUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [file])
+
+  function onImgLoad() {
+    const el = imgElRef.current
+    if (!el) return
+    setNatural({ w: el.naturalWidth, h: el.naturalHeight })
+  }
+
+  // "Cover" scale — smallest zoom where the image still fully fills the circle, no gaps.
+  const baseScale = natural.w && natural.h ? Math.max(CONTAINER / natural.w, CONTAINER / natural.h) : 1
+  const dispW = natural.w * baseScale * zoom
+  const dispH = natural.h * baseScale * zoom
+
+  function clampPos(x: number, y: number) {
+    const minX = Math.min(0, CONTAINER - dispW)
+    const minY = Math.min(0, CONTAINER - dispH)
+    return { x: Math.max(minX, Math.min(0, x)), y: Math.max(minY, Math.min(0, y)) }
+  }
+
+  // Recenter/reclamp whenever zoom or the image itself changes size.
+  useEffect(() => {
+    setPos(p => clampPos((CONTAINER - dispW) / 2, (CONTAINER - dispH) / 2))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoom, natural.w, natural.h])
+
+  function startDrag(clientX: number, clientY: number) {
+    dragRef.current = { startX: clientX, startY: clientY, origX: pos.x, origY: pos.y }
+  }
+  function moveDrag(clientX: number, clientY: number) {
+    if (!dragRef.current) return
+    const { startX, startY, origX, origY } = dragRef.current
+    setPos(clampPos(origX + (clientX - startX), origY + (clientY - startY)))
+  }
+  function endDrag() { dragRef.current = null }
+
+  useEffect(() => {
+    function onMove(e: MouseEvent) { moveDrag(e.clientX, e.clientY) }
+    function onUp() { endDrag() }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pos, dispW, dispH])
+
+  async function handleSave() {
+    const el = imgElRef.current
+    if (!el) return
+    setSaving(true)
+    const canvas = document.createElement('canvas')
+    canvas.width = OUTPUT
+    canvas.height = OUTPUT
+    const ctx = canvas.getContext('2d')!
+    const ratio = OUTPUT / CONTAINER
+    ctx.drawImage(el, pos.x * ratio, pos.y * ratio, dispW * ratio, dispH * ratio)
+    canvas.toBlob(blob => {
+      setSaving(false)
+      if (blob) onSave(blob)
+    }, 'image/jpeg', 0.9)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onCancel}>
+      <div className="bg-white rounded-xl border border-border max-w-sm w-full p-5" onClick={e => e.stopPropagation()}>
+        <h2 className="text-lg font-semibold text-ink mb-1">Adjust photo</h2>
+        <p className="text-sm text-secondary mb-4">Drag to reposition, use the slider to zoom.</p>
+
+        <div
+          className="relative mx-auto rounded-full overflow-hidden bg-surface-low cursor-move select-none"
+          style={{ width: CONTAINER, height: CONTAINER }}
+          onMouseDown={e => { e.preventDefault(); startDrag(e.clientX, e.clientY) }}
+          onTouchStart={e => { const t = e.touches[0]; startDrag(t.clientX, t.clientY) }}
+          onTouchMove={e => { const t = e.touches[0]; moveDrag(t.clientX, t.clientY) }}
+          onTouchEnd={endDrag}
+        >
+          {imgUrl && (
+            <img
+              ref={imgElRef}
+              src={imgUrl}
+              onLoad={onImgLoad}
+              alt="Crop preview"
+              draggable={false}
+              className="absolute select-none pointer-events-none"
+              style={{ width: dispW, height: dispH, left: pos.x, top: pos.y }}
+            />
+          )}
+        </div>
+
+        <div className="flex items-center gap-3 mt-4">
+          <span className="text-xs text-secondary">🔍</span>
+          <input type="range" min={1} max={3} step={0.01} value={zoom} onChange={e => setZoom(Number(e.target.value))} className="flex-1" />
+        </div>
+
+        <div className="flex justify-end gap-2 mt-5">
+          <button className={btnGhostCls} onClick={onCancel}>Cancel</button>
+          <button className={`${btnPrimaryCls} flex items-center gap-2`} onClick={handleSave} disabled={saving || !natural.w}>
+            {saving && <Spinner />}
+            {saving ? 'Saving…' : 'Save photo'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
