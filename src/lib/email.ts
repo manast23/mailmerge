@@ -18,8 +18,7 @@ export async function sendEmail({
   html,
   trackId,
   fromName,
-  attachmentUrl,
-  attachmentName,
+  attachments,
   inReplyTo,
   references,
   gmailUser,
@@ -30,8 +29,7 @@ export async function sendEmail({
   html: string
   trackId: string
   fromName?: string
-  attachmentUrl?: string
-  attachmentName?: string
+  attachments?: { url: string; name: string }[]
   inReplyTo?: string
   references?: string
   gmailUser: string
@@ -58,14 +56,12 @@ export async function sendEmail({
   if (inReplyTo) mailOptions.inReplyTo = inReplyTo
   if (references) mailOptions.references = references
 
-  // Attach file if provided
-  if (attachmentUrl && attachmentName) {
-    mailOptions.attachments = [
-      {
-        filename: attachmentName,
-        path: attachmentUrl,
-      }
-    ]
+  // Attach files if provided (up to 5, enforced at upload time)
+  if (attachments && attachments.length) {
+    mailOptions.attachments = attachments.map(a => ({
+      filename: a.name,
+      path: a.url,
+    }))
   }
 
   try {

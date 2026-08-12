@@ -23,9 +23,8 @@ export async function POST(req: NextRequest) {
         subject: t.subject,
         body: t.body,
         // Signed Supabase URLs aren't tied to who requests them, just to knowing the URL,
-        // so the attachment can be reused as-is without re-uploading the file.
-        attachmentUrl: t.attachmentUrl || null,
-        attachmentName: t.attachmentName || null,
+        // so attachments can be reused as-is without re-uploading the files.
+        attachments: t.attachments || [],
       }
     })
     if (t.exportedId) idMap[t.exportedId] = created.id

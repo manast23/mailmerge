@@ -69,8 +69,7 @@ export async function GET(req: NextRequest) {
         fromName: recipient.fromName || undefined,
         gmailUser: staggeredGmailUser,
         gmailAppPassword: staggeredGmailAppPassword,
-        attachmentUrl: campaign.template.attachmentUrl || undefined,
-        attachmentName: campaign.template.attachmentName || undefined,
+        attachments: (campaign.template.attachments as { url: string; name: string }[] | null) || undefined,
       })
 
       await prisma.recipient.update({
@@ -141,8 +140,7 @@ export async function GET(req: NextRequest) {
         fromName:   followUp.fromName  || undefined,
         gmailUser: followUpGmailUser,
         gmailAppPassword: followUpGmailAppPassword,
-        attachmentUrl:  followUp.template.attachmentUrl  || undefined,
-        attachmentName: followUp.template.attachmentName || undefined,
+        attachments: (followUp.template.attachments as { url: string; name: string }[] | null) || undefined,
         inReplyTo:  followUp.recipient.messageId || undefined,
         references: followUp.recipient.messageId || undefined,
       })

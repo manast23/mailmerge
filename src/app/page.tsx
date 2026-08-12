@@ -3,8 +3,9 @@ import React, { useState, useEffect, useRef } from 'react'
 import { extractPlaceholders } from '@/lib/placeholders'
 
 // ─── Types ───────────────────────────────────────────────
-interface Template { id: string; name: string; subject: string; body: string; updatedAt: string; attachmentName?: string; attachmentUrl?: string }
-interface Campaign { id: string; name: string; status: string; template: { name: string; subject: string }; total: number; sent: number; opened: number; errors: number; createdAt: string; scheduledAt?: string; templateId?: string; attachmentName?: string; attachmentUrl?: string }
+interface Attachment { url: string; name: string }
+interface Template { id: string; name: string; subject: string; body: string; updatedAt: string; attachments?: Attachment[] }
+interface Campaign { id: string; name: string; status: string; template: { name: string; subject: string }; total: number; sent: number; opened: number; errors: number; createdAt: string; scheduledAt?: string; templateId?: string }
 interface Recipient { id: string; email: string; data: any; status: string; sentAt?: string; openedAt?: string; error?: string }
 
 type Tab = 'home' | 'campaigns' | 'compose' | 'dashboard' | 'account'
@@ -1712,7 +1713,7 @@ function ComposeTab({ templates: initialTemplates, onSaved, showToast }: any) {
   const [body, setBody]                 = useState('')
   const [saving, setSaving]             = useState(false)
   const [autoSaving, setAutoSaving]     = useState(false)
-  const [attachmentName, setAttachmentName] = useState('')
+  const [attachments, setAttachments]   = useState<Attachment[]>([])
   const [uploading, setUploading]       = useState(false)
   const [sendingTest, setSendingTest]   = useState(false)
   const attachRef   = useRef<HTMLInputElement>(null)
@@ -1750,7 +1751,7 @@ function ComposeTab({ templates: initialTemplates, onSaved, showToast }: any) {
 
   function resetEditor() {
     setSelected(null)
-    setName(''); setSubject(''); setBody(''); setAttachmentName('')
+    setName(''); setSubject(''); setBody(''); setAttachments([])
     editor?.commands.setContent('')
   }
 
@@ -1759,7 +1760,7 @@ function ComposeTab({ templates: initialTemplates, onSaved, showToast }: any) {
     const tempTemplate: Template = { id: tempId, name: 'Untitled', subject: '', body: '', updatedAt: new Date().toISOString() }
     setLocalTemplates(prev => [tempTemplate, ...prev])
     setSelected(tempTemplate)
-    setName(''); setSubject(''); setBody(''); setAttachmentName('')
+    setName(''); setSubject(''); setBody(''); setAttachments([])
     editor?.commands.setContent('')
     fetch('/api/templates', {
       method: 'POST',
@@ -1823,32 +1824,40 @@ function ComposeTab({ templates: initialTemplates, onSaved, showToast }: any) {
     setName(t.name === 'Untitled' ? '' : t.name)
     setSubject(t.subject)
     setBody(t.body)
-    setAttachmentName((t as any).attachmentName || '')
+    setAttachments(t.attachments || [])
     editor?.commands.setContent(t.body)
   }
 
-  async function uploadAttachment(file: File) {
+  const MAX_ATTACHMENTS = 5
+
+  async function uploadAttachments(files: FileList) {
     if (!selected?.id || selected.id.startsWith('temp_')) return showToast('Please wait a moment then try again', 'error')
+    const incoming = Array.from(files)
+    if (attachments.length + incoming.length > MAX_ATTACHMENTS) {
+      return showToast(`You can attach at most ${MAX_ATTACHMENTS} files (${attachments.length} already attached)`, 'error')
+    }
     setUploading(true)
     const form = new FormData()
-    form.append('file', file)
+    incoming.forEach(f => form.append('files', f))
     form.append('templateId', selected.id)
     const r = await fetch('/api/upload', { method: 'POST', body: form })
     const d = await r.json()
     setUploading(false)
     if (d.error) return showToast(d.error, 'error')
-    setAttachmentName(d.attachmentName)
-    showToast(`Attached: ${d.attachmentName}`)
+    setAttachments(d.attachments)
+    showToast(incoming.length > 1 ? `Attached ${incoming.length} files` : `Attached: ${incoming[0].name}`)
   }
 
-  async function removeAttachment() {
+  async function removeAttachment(url: string) {
     if (!selected) return
-    await fetch('/api/upload', {
+    setAttachments(prev => prev.filter(a => a.url !== url))
+    const r = await fetch('/api/upload', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ templateId: selected.id })
+      body: JSON.stringify({ templateId: selected.id, url })
     })
-    setAttachmentName('')
+    const d = await r.json()
+    if (d.attachments) setAttachments(d.attachments)
     showToast('Attachment removed')
   }
 
@@ -1941,20 +1950,25 @@ function ComposeTab({ templates: initialTemplates, onSaved, showToast }: any) {
             )}
 
             <div className={cardCls}>
-              <label className={labelCls}>Attachment</label>
-              <input ref={attachRef} type="file" className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" onChange={e => { if(e.target.files?.[0]) uploadAttachment(e.target.files[0]) }} />
-              {attachmentName ? (
-                <div className="flex items-center gap-2 px-3 py-2 bg-surface-low rounded-lg border border-border">
-                  <span>📎</span>
-                  <span className="text-xs text-ink flex-1 truncate">{attachmentName}</span>
-                  <button onClick={removeAttachment} className="text-accentRed text-sm px-1">✕</button>
+              <label className={labelCls}>Attachments ({attachments.length}/{MAX_ATTACHMENTS})</label>
+              <input ref={attachRef} type="file" multiple className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" onChange={e => { if(e.target.files?.length) uploadAttachments(e.target.files); e.target.value = '' }} />
+              {attachments.length > 0 && (
+                <div className="flex flex-col gap-1.5 mb-2">
+                  {attachments.map(a => (
+                    <div key={a.url} className="flex items-center gap-2 px-3 py-2 bg-surface-low rounded-lg border border-border">
+                      <span>📎</span>
+                      <span className="text-xs text-ink flex-1 truncate">{a.name}</span>
+                      <button onClick={() => removeAttachment(a.url)} className="text-accentRed text-sm px-1">✕</button>
+                    </div>
+                  ))}
                 </div>
-              ) : (
+              )}
+              {attachments.length < MAX_ATTACHMENTS && (
                 <button className={`${btnGhostCls} w-full`} onClick={() => attachRef.current?.click()} disabled={uploading}>
                   {uploading ? 'Uploading…' : '📎 Attach File'}
                 </button>
               )}
-              <div className="text-xs text-outline mt-1.5">PDF, Word, Excel, or image files</div>
+              <div className="text-xs text-outline mt-1.5">PDF, Word, Excel, or image files — up to {MAX_ATTACHMENTS}</div>
             </div>
           </div>
         </div>
@@ -1984,7 +1998,7 @@ function ComposeTab({ templates: initialTemplates, onSaved, showToast }: any) {
                 <h3 className="font-semibold text-ink mb-1">{t.name || 'Untitled'}</h3>
                 <p className="text-sm text-secondary mb-4 truncate">{t.subject || 'No subject'}</p>
                 <div className="flex items-center justify-between text-xs text-secondary pt-3 border-t border-border">
-                  {(t as any).attachmentName ? <span>📎 {(t as any).attachmentName}</span> : <span />}
+                  {t.attachments && t.attachments.length > 0 ? <span>📎 {t.attachments.length} file{t.attachments.length > 1 ? 's' : ''}</span> : <span />}
                   <span>{new Date(t.updatedAt).toLocaleDateString('en-PK',{day:'2-digit',month:'short'})}</span>
                 </div>
                 <div className="absolute top-4 right-4 hidden group-hover:flex gap-1 bg-white rounded-lg shadow-ambient border border-border p-1">

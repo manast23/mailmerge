@@ -63,7 +63,8 @@ src/lib/
 
 ## Database Schema (Supabase)
 - **User**: id, name, email (unique), passwordHash, gmailAddress, encryptedAppPassword, createdAt
-- **Template**: id, userId, name, subject, body, attachmentUrl, attachmentName
+- **Template**: id, userId, name, subject, body, attachments (JSON array of `{ url, name }`,
+  max 5 per template — enforced in `/api/upload`)
 - **Campaign**: id, userId, name, templateId, status (draft/sending/done/scheduled), scheduledAt, sentCount
 - **Recipient**: id, campaignId, email, data (JSON), status, sendAfter, sentAt, openedAt, trackId, messageId, followUpCount, error, fromName, fromEmail
 - **FollowUp**: id, recipientId, templateId, status (pending/scheduled/sent/error), sentAt, openedAt, scheduledAt, trackId, messageId, number, delayMin, delayMax, fromName, fromEmail, error
@@ -81,7 +82,10 @@ src/lib/
 - Templates with `{{placeholders}}` + TipTap rich text editor
 - Send a test copy of a template to yourself before running a real campaign (Compose tab)
 - Merge-tag typo warning on the campaign detail page (flags `{{tags}}` with no matching column)
-- File attachment per template (stored in Supabase Storage)
+- Up to 5 file attachments per template (stored in Supabase Storage, added August 2026 —
+  replaced the old single attachmentUrl/attachmentName columns with an `attachments` JSON
+  array `{ url, name }[]`; `/api/upload` POST accepts multiple `files` entries and enforces
+  the 5-file cap server-side, DELETE removes one attachment by `url`)
 - Auto-save draft while typing (2s debounce)
 - Campaigns: create, send, edit name/template, delete
 - Recipients: import via CSV, Google Sheet URL, or manual paste (tab-separated; the textarea
@@ -112,6 +116,9 @@ src/lib/
   commit and push together with the code change.
 - Push directly to GitHub from Claude's container
 - Vercel auto-deploys on push to master
+- **Pending manual migration**: run `prisma/migrations/manual_multi_attachment_migration.sql`
+  in the Supabase SQL Editor to add the `attachments` JSONB column, backfill it from the old
+  `attachmentUrl`/`attachmentName` columns, then drop those two columns.
 - Schema changes require manual SQL in Supabase SQL Editor (Prisma binary blocked in container —
   `npx prisma generate` fails with a 403 fetching the engine binary, since binaries.prisma.sh isn't
   in the container's allowed network domains)

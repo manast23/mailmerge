@@ -31,8 +31,7 @@ export async function POST(req: NextRequest) {
       name: t.name,
       subject: t.subject,
       body: t.body,
-      attachmentUrl: t.attachmentUrl,
-      attachmentName: t.attachmentName,
+      attachments: t.attachments,
     })),
     campaigns: campaigns.map(c => ({
       name: c.name,

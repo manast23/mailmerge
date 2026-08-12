@@ -8,16 +8,21 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY!
 )
 
+const MAX_ATTACHMENTS = 5
+
+type Attachment = { url: string; name: string }
+
 export async function POST(req: NextRequest) {
   try {
     const user = await getCurrentUser()
     if (!user) return NextResponse.json({ error: 'Not logged in' }, { status: 401 })
 
     const form = await req.formData()
-    const file = form.get('file') as File
+    // Accept either a single 'file' (back-compat) or multiple 'files' entries.
+    const files = form.getAll('files').length ? form.getAll('files') as File[] : [form.get('file') as File].filter(Boolean)
     const templateId = form.get('templateId') as string
 
-    if (!file || !templateId) {
+    if (!files.length || !templateId) {
       return NextResponse.json({ error: 'File and templateId required' }, { status: 400 })
     }
 
@@ -26,37 +31,47 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Template not found' }, { status: 404 })
     }
 
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
-    const fileName = `${templateId}/${Date.now()}-${file.name}`
+    const existing = (template.attachments as Attachment[] | null) || []
+    if (existing.length + files.length > MAX_ATTACHMENTS) {
+      return NextResponse.json(
+        { error: `You can attach at most ${MAX_ATTACHMENTS} files per template (${existing.length} already attached).` },
+        { status: 400 }
+      )
+    }
 
-    const { error } = await supabase.storage
-      .from('attachments')
-      .upload(fileName, buffer, {
-        contentType: file.type,
-        upsert: true
-      })
+    const uploaded: Attachment[] = []
+    for (const file of files) {
+      const bytes = await file.arrayBuffer()
+      const buffer = Buffer.from(bytes)
+      const fileName = `${templateId}/${Date.now()}-${file.name}`
 
-    if (error) throw error
+      const { error } = await supabase.storage
+        .from('attachments')
+        .upload(fileName, buffer, {
+          contentType: file.type,
+          upsert: true
+        })
+      if (error) throw error
 
-    const { data: urlData } = await supabase.storage
-      .from('attachments')
-      .createSignedUrl(fileName, 60 * 60 * 24 * 365)
+      const { data: urlData } = await supabase.storage
+        .from('attachments')
+        .createSignedUrl(fileName, 60 * 60 * 24 * 365)
+      if (!urlData?.signedUrl) throw new Error('Could not get signed URL')
 
-    if (!urlData?.signedUrl) throw new Error('Could not get signed URL')
+      uploaded.push({ url: urlData.signedUrl, name: file.name })
+    }
+
+    const attachments = [...existing, ...uploaded]
 
     await prisma.template.update({
       where: { id: templateId },
-      data: {
-        attachmentUrl: urlData.signedUrl,
-        attachmentName: file.name
-      }
+      data: { attachments }
     })
 
     return NextResponse.json({
       success: true,
-      attachmentName: file.name,
-      attachmentUrl: urlData.signedUrl
+      attachments,
+      uploaded,
     })
   } catch (err: any) {
     console.error('Upload error:', err)
@@ -69,17 +84,21 @@ export async function DELETE(req: NextRequest) {
     const user = await getCurrentUser()
     if (!user) return NextResponse.json({ error: 'Not logged in' }, { status: 401 })
 
-    const { templateId } = await req.json()
+    const { templateId, url } = await req.json()
     const template = await prisma.template.findUnique({ where: { id: templateId } })
     if (!template || template.userId !== user.id) {
       return NextResponse.json({ error: 'Template not found' }, { status: 404 })
     }
 
+    const existing = (template.attachments as Attachment[] | null) || []
+    // If a specific url is given, remove just that one; otherwise clear all (back-compat).
+    const attachments = url ? existing.filter(a => a.url !== url) : []
+
     await prisma.template.update({
       where: { id: templateId },
-      data: { attachmentUrl: null, attachmentName: null }
+      data: { attachments }
     })
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, attachments })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

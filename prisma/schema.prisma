@@ -28,8 +28,7 @@ model Template {
   name           String
   subject        String
   body           String     @db.Text
-  attachmentUrl  String?
-  attachmentName String?
+  attachments    Json       @default("[]")
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
   campaigns      Campaign[]

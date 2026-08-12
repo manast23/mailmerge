@@ -45,8 +45,7 @@ export async function POST(req: NextRequest) {
       trackId: randomUUID(),
       gmailUser,
       gmailAppPassword,
-      attachmentUrl: template.attachmentUrl || undefined,
-      attachmentName: template.attachmentName || undefined,
+      attachments: (template.attachments as { url: string; name: string }[] | null) || undefined,
     })
     return NextResponse.json({ success: true, placeholders })
   } catch (e: any) {
