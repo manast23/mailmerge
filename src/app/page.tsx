@@ -1068,6 +1068,8 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
   const [followUpLevel, setFollowUpLevel]     = useState(0)
   const [sendingFollowUp, setSendingFollowUp] = useState(false)
   const [selectedRecipients, setSelectedRecipients] = useState<Set<string>>(new Set())
+  const [recipientSearch, setRecipientSearch]       = useState('')
+  const [bulkActing, setBulkActing]                 = useState(false)
   const [expandedRecipient, setExpandedRecipient]   = useState<string | null>(null)
   const [followUpScheduled, setFollowUpScheduled]   = useState(false)
   const [followUpScheduleAt, setFollowUpScheduleAt] = useState('')
@@ -1211,6 +1213,40 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
     showToast('Scheduled follow-up cancelled')
   }
 
+  async function revokeSelected() {
+    if (selectedRecipients.size === 0) return
+    setBulkActing(true)
+    const r = await fetch(`/api/campaigns/${campaign.id}/cancel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recipientIds: [...selectedRecipients] })
+    })
+    const d = await r.json()
+    setBulkActing(false)
+    if (d.error) return showToast(d.error, 'error')
+    setRecipients(prev => prev.map(r => selectedRecipients.has(r.id) && r.status === 'pending' ? { ...r, status: 'cancelled' } : r))
+    setSelectedRecipients(new Set())
+    showToast(d.cancelledCount > 0 ? `Revoked ${d.cancelledCount} scheduled email${d.cancelledCount > 1 ? 's' : ''}` : 'None of the selected recipients were pending')
+  }
+
+  async function deleteSelected() {
+    if (selectedRecipients.size === 0) return
+    if (!confirm(`Delete ${selectedRecipients.size} selected recipient${selectedRecipients.size > 1 ? 's' : ''}? This can't be undone.`)) return
+    setBulkActing(true)
+    const ids = [...selectedRecipients]
+    const r = await fetch(`/api/recipients?campaignId=${campaign.id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids })
+    })
+    const d = await r.json()
+    setBulkActing(false)
+    if (d.error) return showToast(d.error, 'error')
+    setRecipients(prev => prev.filter(r => !selectedRecipients.has(r.id)))
+    setSelectedRecipients(new Set())
+    showToast(`Deleted ${d.deletedCount} recipient${d.deletedCount > 1 ? 's' : ''}`)
+  }
+
   async function startFollowUp() {
     if (!followUpTemplateId) return showToast('Select a template for the follow-up', 'error')
     if (!showFollowUp) return
@@ -1258,6 +1294,14 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
   const pending    = recipients.filter(r => r.status === 'pending').length
   const sent       = recipients.filter(r => r.status === 'sent').length
   const opened     = recipients.filter(r => r.openedAt).length
+  const filteredRecipients = recipientSearch.trim()
+    ? recipients.filter(r => {
+        const q = recipientSearch.trim().toLowerCase()
+        const inEmail = r.email.toLowerCase().includes(q)
+        const inData  = Object.values(r.data || {}).some(v => String(v).toLowerCase().includes(q))
+        return inEmail || inData
+      })
+    : recipients
 
   // Merge-tag typo detection: compare {{placeholders}} used in the selected template
   // against the actual column names imported for this campaign's recipients.
@@ -1413,16 +1457,48 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
             )}
 
             {recipients.length > 0 && (
+              <div className="flex items-center gap-2 mb-3">
+                <input
+                  className={`${inputCls} flex-1`}
+                  placeholder="Search recipients by name or email…"
+                  value={recipientSearch}
+                  onChange={e => setRecipientSearch(e.target.value)}
+                />
+                {recipientSearch && (
+                  <button className={btnGhostCls} onClick={() => setRecipientSearch('')}>Clear</button>
+                )}
+              </div>
+            )}
+
+            {selectedRecipients.size > 0 && (
+              <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-surface-low border border-border rounded-lg text-sm">
+                <span className="text-ink font-medium">{selectedRecipients.size} selected</span>
+                <div className="flex-1" />
+                <button className={btnGhostCls} onClick={revokeSelected} disabled={bulkActing} title="Cancel scheduled sends for selected pending recipients">
+                  {bulkActing ? 'Working…' : '⏰ Revoke Scheduled'}
+                </button>
+                <button className={`${btnGhostCls} text-accentRed`} onClick={deleteSelected} disabled={bulkActing}>
+                  {bulkActing ? 'Working…' : '🗑 Delete'}
+                </button>
+                <button className={btnGhostCls} onClick={() => setSelectedRecipients(new Set())} disabled={bulkActing}>
+                  Clear
+                </button>
+              </div>
+            )}
+
+            {recipients.length > 0 && (
               <div className="overflow-x-auto max-h-[295px] overflow-y-auto border border-border rounded-lg">
                 <table className="w-full text-left text-sm">
                   <thead className="sticky top-0 bg-white z-10">
                     <tr className="text-xs text-secondary uppercase border-b border-border">
                       <th className="w-8 px-3 py-2">
                         <input type="checkbox"
-                          checked={selectedRecipients.size === recipients.filter(r => r.status === 'sent').length && recipients.filter(r => r.status === 'sent').length > 0}
+                          checked={filteredRecipients.length > 0 && filteredRecipients.every(r => selectedRecipients.has(r.id))}
                           onChange={e => {
-                            if (e.target.checked) setSelectedRecipients(new Set(recipients.filter(r => r.status === 'sent').map(r => r.id)))
-                            else setSelectedRecipients(new Set())
+                            const next = new Set(selectedRecipients)
+                            if (e.target.checked) filteredRecipients.forEach(r => next.add(r.id))
+                            else filteredRecipients.forEach(r => next.delete(r.id))
+                            setSelectedRecipients(next)
                           }}
                         />
                       </th>
@@ -1434,23 +1510,24 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {recipients.map(r => (
+                    {filteredRecipients.length === 0 && (
+                      <tr><td colSpan={6 + columns.slice(0,3).filter(c => !c.toLowerCase().includes('email')).length} className="px-3 py-6 text-center text-xs text-outline">No recipients match "{recipientSearch}"</td></tr>
+                    )}
+                    {filteredRecipients.map(r => (
                       <React.Fragment key={r.id}>
                       <tr
                         className={`cursor-pointer hover:bg-surface-low transition-colors ${selectedRecipients.has(r.id) ? 'bg-surface-low' : ''}`}
                         onClick={() => setExpandedRecipient(expandedRecipient === r.id ? null : r.id)}
                       >
                         <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
-                          {r.status === 'sent' && (
-                            <input type="checkbox"
-                              checked={selectedRecipients.has(r.id)}
-                              onChange={e => {
-                                const next = new Set(selectedRecipients)
-                                e.target.checked ? next.add(r.id) : next.delete(r.id)
-                                setSelectedRecipients(next)
-                              }}
-                            />
-                          )}
+                          <input type="checkbox"
+                            checked={selectedRecipients.has(r.id)}
+                            onChange={e => {
+                              const next = new Set(selectedRecipients)
+                              e.target.checked ? next.add(r.id) : next.delete(r.id)
+                              setSelectedRecipients(next)
+                            }}
+                          />
                         </td>
                         <td className="px-3 py-2 font-medium text-ink">
                           <span className="flex items-center gap-1.5">

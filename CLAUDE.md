@@ -107,7 +107,13 @@ src/lib/
 - Sidebar: fixed 220px, collapses to 60px on hover-out (pinnable)
 - Main content: always starts at 220px left margin
 - Three tabs: Campaigns, Compose (Templates), Dashboard
-- Campaign detail: left panel (recipients table 295px height, scrollable) + right panel (send settings + follow-up card, sticky)
+- Campaign detail: left panel (recipients table 295px height, scrollable, with a search box
+  filtering by email/any imported column, plus a bulk action bar when rows are checked —
+  "Revoke Scheduled" cancels pending sends for just the selected recipients via
+  `POST /api/campaigns/[id]/cancel` with `{ recipientIds }`, "Delete" removes the selected
+  recipients entirely via `DELETE /api/recipients?campaignId=...` with `{ ids }` — both routes
+  fall back to their old "whole campaign" behavior when no ids are passed) + right panel
+  (send settings + follow-up card, sticky)
 
 ## Workflow
 - **At the start of every new session on this project**: clone the repo with a fresh GitHub PAT

@@ -101,6 +101,18 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
   }
 
-  await prisma.recipient.deleteMany({ where: { campaignId } })
-  return NextResponse.json({ success: true })
+  // Optional JSON body { ids: string[] } to delete only specific recipients.
+  // No body / empty ids clears the whole campaign (existing behavior).
+  let ids: string[] | undefined
+  try {
+    const body = await req.json()
+    if (Array.isArray(body?.ids) && body.ids.length) ids = body.ids
+  } catch {
+    // no body sent — fall through to "clear all"
+  }
+
+  const deleted = await prisma.recipient.deleteMany({
+    where: ids ? { id: { in: ids }, campaignId } : { campaignId }
+  })
+  return NextResponse.json({ success: true, deletedCount: deleted.count })
 }
