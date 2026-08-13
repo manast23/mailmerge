@@ -108,8 +108,9 @@ src/lib/
 - Main content: always starts at 220px left margin
 - Three tabs: Campaigns, Compose (Templates), Dashboard
 - Campaign detail: left panel (recipients table 295px height, scrollable, with a search box
-  filtering by email/any imported column, plus a bulk action bar when rows are checked —
-  "Revoke Scheduled" cancels pending sends for just the selected recipients via
+  filtering by email/any imported column plus a status dropdown — All/Pending/Sent/Opened/
+  Not opened/Error/Cancelled, combined with the text search — and a bulk action bar when rows
+  are checked — "Revoke Scheduled" cancels pending sends for just the selected recipients via
   `POST /api/campaigns/[id]/cancel` with `{ recipientIds }`, "Delete" removes the selected
   recipients entirely via `DELETE /api/recipients?campaignId=...` with `{ ids }` — both routes
   fall back to their old "whole campaign" behavior when no ids are passed) + right panel

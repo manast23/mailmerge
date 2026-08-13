@@ -1069,6 +1069,7 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
   const [sendingFollowUp, setSendingFollowUp] = useState(false)
   const [selectedRecipients, setSelectedRecipients] = useState<Set<string>>(new Set())
   const [recipientSearch, setRecipientSearch]       = useState('')
+  const [recipientStatusFilter, setRecipientStatusFilter] = useState<'all'|'pending'|'sent'|'opened'|'not_opened'|'error'|'cancelled'>('all')
   const [bulkActing, setBulkActing]                 = useState(false)
   const [expandedRecipient, setExpandedRecipient]   = useState<string | null>(null)
   const [followUpScheduled, setFollowUpScheduled]   = useState(false)
@@ -1294,14 +1295,25 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
   const pending    = recipients.filter(r => r.status === 'pending').length
   const sent       = recipients.filter(r => r.status === 'sent').length
   const opened     = recipients.filter(r => r.openedAt).length
-  const filteredRecipients = recipientSearch.trim()
-    ? recipients.filter(r => {
-        const q = recipientSearch.trim().toLowerCase()
-        const inEmail = r.email.toLowerCase().includes(q)
-        const inData  = Object.values(r.data || {}).some(v => String(v).toLowerCase().includes(q))
-        return inEmail || inData
-      })
-    : recipients
+  const filteredRecipients = recipients
+    .filter(r => {
+      switch (recipientStatusFilter) {
+        case 'pending':    return r.status === 'pending'
+        case 'sent':       return r.status === 'sent'
+        case 'opened':     return !!r.openedAt
+        case 'not_opened': return r.status === 'sent' && !r.openedAt
+        case 'error':      return r.status === 'error'
+        case 'cancelled':  return r.status === 'cancelled'
+        default:           return true
+      }
+    })
+    .filter(r => {
+      if (!recipientSearch.trim()) return true
+      const q = recipientSearch.trim().toLowerCase()
+      const inEmail = r.email.toLowerCase().includes(q)
+      const inData  = Object.values(r.data || {}).some(v => String(v).toLowerCase().includes(q))
+      return inEmail || inData
+    })
 
   // Merge-tag typo detection: compare {{placeholders}} used in the selected template
   // against the actual column names imported for this campaign's recipients.
@@ -1464,8 +1476,21 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
                   value={recipientSearch}
                   onChange={e => setRecipientSearch(e.target.value)}
                 />
-                {recipientSearch && (
-                  <button className={btnGhostCls} onClick={() => setRecipientSearch('')}>Clear</button>
+                <select
+                  className={inputCls}
+                  value={recipientStatusFilter}
+                  onChange={e => setRecipientStatusFilter(e.target.value as any)}
+                >
+                  <option value="all">All statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="sent">Sent</option>
+                  <option value="opened">Opened</option>
+                  <option value="not_opened">Not opened</option>
+                  <option value="error">Error</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+                {(recipientSearch || recipientStatusFilter !== 'all') && (
+                  <button className={btnGhostCls} onClick={() => { setRecipientSearch(''); setRecipientStatusFilter('all') }}>Clear</button>
                 )}
               </div>
             )}
@@ -1511,7 +1536,9 @@ function CampaignDetail({ campaign, templates, initialRecipients, onBack, showTo
                   </thead>
                   <tbody className="divide-y divide-border">
                     {filteredRecipients.length === 0 && (
-                      <tr><td colSpan={6 + columns.slice(0,3).filter(c => !c.toLowerCase().includes('email')).length} className="px-3 py-6 text-center text-xs text-outline">No recipients match "{recipientSearch}"</td></tr>
+                      <tr><td colSpan={6 + columns.slice(0,3).filter(c => !c.toLowerCase().includes('email')).length} className="px-3 py-6 text-center text-xs text-outline">
+                        No recipients match {recipientSearch ? `"${recipientSearch}"` : 'this filter'}
+                      </td></tr>
                     )}
                     {filteredRecipients.map(r => (
                       <React.Fragment key={r.id}>
